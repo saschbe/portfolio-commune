@@ -31,16 +31,19 @@ header {
     padding: 15px 25px;
 }
 
+/* --- Barre de navigation --- */
 .logo {
     display: flex;
-    align-items: center;
+    align-items: center; /* Aligne le logo verticalement avec les liens */
 }
 
-/* Ajustement du logo pour qu'il soit bien proportionné dans le menu */
+/* Ajustement du logo pour qu'il soit bien visible */
 .navbar-logo {
-    height: 50px; /* Ajuste cette hauteur si tu le veux plus grand ou plus petit */
+    height: 80px; /* On augmente la hauteur (au lieu de 50px) */
     width: auto;  /* Garde les bonnes proportions de l'image */
     display: block;
+    margin-right: 15px; /* Ajoute un peu d'espace avec le texte s'il y en a */
+    padding: 5px 0;    /* Ajoute un petit espace au-dessus/en-dessous */
 }
 
 .nav-links {
