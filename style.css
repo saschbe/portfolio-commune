@@ -12,47 +12,156 @@ body {
     background-color: #f9f9f9;
 }
 
-/* --- Barre de navigation --- */
+/* --- Barre de navigation Moderne & Responsive --- */
 header {
-    background-color: #ffffff;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    background-color: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(5px); /* Effet de flou moderne derrière le menu */
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
     position: sticky;
     top: 0;
-    z-index: 100;
+    z-index: 1000;
 }
 
-nav {
+.navbar {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    max-width: 1100px;
+    max-width: 1200px;
     margin: 0 auto;
-    padding: 20px;
+    padding: 15px 25px;
 }
 
 .logo {
-    font-weight: bold;
-    font-size: 1.2rem;
-    color: #007BFF;
+    display: flex;
+    align-items: center;
+}
+
+/* Ajustement du logo pour qu'il soit bien proportionné dans le menu */
+.navbar-logo {
+    height: 50px; /* Ajuste cette hauteur si tu le veux plus grand ou plus petit */
+    width: auto;  /* Garde les bonnes proportions de l'image */
+    display: block;
 }
 
 .nav-links {
     display: flex;
     list-style: none;
+    align-items: center;
 }
 
 .nav-links li {
-    margin-left: 20px;
+    margin-left: 30px;
 }
 
 .nav-links a {
     text-decoration: none;
-    color: #555;
-    transition: color 0.3s;
+    color: #495057;
+    font-weight: 500;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+    position: relative;
+    padding: 5px 0;
+}
+
+/* Petite barre animée sous les liens au survol (PC) */
+.nav-links a::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 0;
+    height: 2px;
+    background-color: #007BFF;
+    transition: width 0.3s ease;
 }
 
 .nav-links a:hover {
     color: #007BFF;
+}
+
+.nav-links a:hover::after {
+    width: 100%;
+}
+
+/* Cache la case à cocher technique */
+.menu-checkbox {
+    display: none;
+}
+
+/* --- Style du bouton Burger (Mobile uniquement) --- */
+.burger-label {
+    display: none; /* Caché sur PC */
+    flex-direction: column;
+    justify-content: space-between;
+    width: 24px;
+    height: 18px;
+    cursor: pointer;
+    z-index: 1010;
+}
+
+.burger-label span {
+    width: 100%;
+    height: 3px;
+    background-color: #333;
+    border-radius: 3px;
+    transition: all 0.3s ease-in-out;
+}
+
+/* ==========================================
+   📱 MODE MOBILE (Écrans de moins de 768px)
+   ========================================== */
+@media screen and (max-width: 768px) {
+    .burger-label {
+        display: flex; /* On affiche le bouton burger */
+    }
+
+    /* Le menu se transforme en volet coulissant */
+    .nav-links {
+        position: fixed;
+        top: 0;
+        right: -100%; /* Caché à droite de l'écran par défaut */
+        height: 100vh;
+        width: 70%; /* Prend 70% de la largeur de l'écran */
+        max-width: 300px;
+        background-color: #ffffff;
+        box-shadow: -5px 0 15px rgba(0,0,0,0.1);
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        transition: right 0.4s cubic-bezier(0.1, 0.8, 0.3, 1);
+        z-index: 1005;
+    }
+
+    .nav-links li {
+        margin: 20px 0; /* Aligne les liens verticalement */
+        width: 100%;
+        text-align: center;
+    }
+
+    .nav-links a {
+        font-size: 1.2rem;
+        display: block;
+        padding: 10px;
+    }
+
+    /* --- LA MAGIE DU CSS --- */
+    /* Quand on clique sur le burger, la case se coche et le menu glisse vers l'intérieur */
+    .menu-checkbox:checked ~ .nav-links {
+        right: 0;
+    }
+
+    /* Animation des barres du burger pour former une croix (X) quand c'est ouvert */
+    .menu-checkbox:checked ~ .burger-label span:nth-child(1) {
+        transform: translateY(7.5px) rotate(45deg);
+    }
+
+    .menu-checkbox:checked ~ .burger-label span:nth-child(2) {
+        opacity: 0; /* Cache la barre du milieu */
+    }
+
+    .menu-checkbox:checked ~ .burger-label span:nth-child(3) {
+        transform: translateY(-7.5px) rotate(-45deg);
+    }
 }
 
 /* --- Section Accueil (Hero) --- */
