@@ -1,3 +1,5 @@
+"use client";
+
 import Header from "@/components/navigation/Header";
 import TimelineSection from "../components/timeline/TimelineSection";
 
@@ -6,7 +8,7 @@ export default function Home() {
     <>
       <Header />
 
-      <main className="min-h-screen bg-black text-white overflow-hidden">
+      <main className="min-h-screen bg-black text-white overflow-x-hidden">
         <section className="relative flex items-center justify-center min-h-screen px-6">
           {/* Background overlay */}
           <div className="absolute inset-0 bg-gradient-to-b from-black via-black/80 to-black z-0" />
