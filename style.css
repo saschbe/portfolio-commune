@@ -37,13 +37,80 @@ header {
     align-items: center; /* Aligne le logo verticalement avec les liens */
 }
 
+    /* --- GESTION DU SOUS-MENU (DROPDOWN) --- */
+
+/* Position relative sur le parent pour aligner le sous-menu */
+.dropdown {
+    position: relative;
+}
+
+/* On cache le sous-menu par défaut */
+.dropdown-content {
+    display: none;
+    position: absolute;
+    background-color: #ffffff;
+    min-width: 180px;
+    box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.1);
+    z-index: 1000;
+    list-style: none;
+    padding: 10px 0;
+    border-radius: 8px;
+    top: 100%; /* S'affiche juste en dessous du lien "Village" */
+    left: 0;
+}
+
+/* Style des liens à l'intérieur du sous-menu */
+.dropdown-content li {
+    margin-left: 0 !important; /* Retire la marge de gauche des listes classiques */
+    width: 100%;
+}
+
+.dropdown-content a {
+    color: #333 !important;
+    padding: 12px 20px !important;
+    display: block !important;
+    font-size: 0.95rem !important;
+}
+
+.dropdown-content a::after {
+    display: none; /* On retire la barre bleue animée pour les sous-menus */
+}
+
+.dropdown-content a:hover {
+    background-color: #f1f5f9;
+    color: #007BFF !important;
+}
+
+/* LA MAGIE : On affiche le menu au survol de la souris */
+.dropdown:hover .dropdown-content {
+    display: block;
+}
+
+/* Petite icône flèche */
+.dropbtn i {
+    font-size: 0.8rem;
+    margin-left: 5px;
+}
+
+/* --- ADAPTATION MOBILE (Burger) --- */
+@media screen and (max-width: 768px) {
+    .dropdown-content {
+        position: static; /* Le sous-menu s'intègre dans la liste verticale */
+        display: block;   /* Toujours visible sur mobile pour plus de simplicité */
+        box-shadow: none;
+        background-color: transparent;
+        padding-left: 20px;
+    }
+}
+
 /* Ajustement du logo pour qu'il soit bien visible */
 .navbar-logo {
-    height: 80px; /* On augmente la hauteur (au lieu de 50px) */
-    width: auto;  /* Garde les bonnes proportions de l'image */
+    height: 80px;          /* Hauteur visible du logo dans la barre */
+    width: 170px;          /* Largeur maximale de la zone */
+    object-fit: cover;     /* Permet de zoomer à l'intérieur de l'image */
+    object-position: center 50%; /* Centre le dessin et coupe les grands espaces blancs du haut et du bas */
     display: block;
-    margin-right: 15px; /* Ajoute un peu d'espace avec le texte s'il y en a */
-    padding: 5px 0;    /* Ajoute un petit espace au-dessus/en-dessous */
+    transform: scale(1.0); /* Grossit uniquement le dessin sans élargir la barre de navigation */
 }
 
 .nav-links {
@@ -248,4 +315,124 @@ footer {
     background: #343a40;
     color: white;
     font-size: 0.9rem;
+}
+/* --- SECTION CONTACT SÉCURISÉE --- */
+.contact-section {
+    background: #f8fafc;
+    padding: 80px 20px;
+}
+
+.contact-container {
+    max-width: 650px;
+    margin: 0 auto;
+    background: #ffffff;
+    padding: 40px;
+    border-radius: 16px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+    border: 1px solid #e2e8f0;
+}
+
+.contact-container h2 {
+    color: #005088;
+    text-align: center;
+    margin-top: 0;
+    font-size: 2rem;
+}
+
+.contact-subtitle {
+    text-align: center;
+    color: #64748b;
+    font-size: 0.95rem;
+    margin-bottom: 30px;
+    line-height: 1.5;
+}
+
+.form-group {
+    margin-bottom: 20px;
+    display: flex;
+    flex-direction: column;
+}
+
+.form-group label {
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #334155;
+    font-size: 0.95rem;
+}
+
+.form-group input[type="text"],
+.form-group input[type="email"],
+.form-group select,
+.form-group textarea {
+    padding: 12px 16px;
+    border: 2px solid #cbd5e1;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-family: inherit;
+    transition: all 0.3s ease;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    border-color: #007BFF;
+    outline: none;
+    box-shadow: 0 0 0 4px rgba(0, 123, 255, 0.1);
+}
+
+/* Style de la zone de dépôt de fichier technique */
+#file-upload {
+    display: none; /* On cache le bouton moche par défaut du navigateur */
+}
+
+.custom-file-label {
+    background: #f1f5f9;
+    border: 2px dashed #007BFF;
+    color: #005088;
+    padding: 20px;
+    text-align: center;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 700 !important;
+    transition: background 0.3s ease;
+}
+
+.custom-file-label:hover {
+    background: #e2e8f0;
+}
+
+.custom-file-label i {
+    font-size: 1.5rem;
+    margin-bottom: 5px;
+    display: block;
+}
+
+.file-preview-text {
+    font-size: 0.85rem;
+    color: #64748b;
+    margin-top: 8px;
+    text-align: center;
+    font-style: italic;
+}
+
+/* Bouton d'envoi */
+.btn-submit {
+    width: 100%;
+    padding: 14px;
+    background: #005088;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 1.1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.3s ease;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+}
+
+.btn-submit:hover {
+    background: #003d66;
 }
