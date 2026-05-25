@@ -133,61 +133,65 @@ export default function Gallery() {
       </div>
       {/* Fullscreen viewer */}
       {selectedImage && (
-        <div
-          className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-xl flex items-center justify-center p-6"
-          onClick={() => setSelectedImage(null)}
-        >
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setSelectedImage(null);
-            }}
-            className="absolute top-6 right-6 z-[110] text-white text-5xl hover:text-cyan-300 transition-all duration-300"
-          >
-            ✕
-          </button>
+        <div className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-xl">
+          <div
+            className="absolute inset-0"
+            onClick={() => setSelectedImage(null)}
+          />
 
-          <div className="relative w-full h-full md:max-w-6xl md:h-[85vh]">
-            <Image
-              src={selectedImage.src}
-              alt={selectedImage.title}
-              fill
-              sizes="100vw"
-              className="object-contain select-none"
-            />
-          </div>
+          <div className="relative flex items-center justify-center w-full h-full md:p-6">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedImage(null);
+              }}
+              className="absolute top-6 right-6 z-[110] text-white text-5xl hover:text-cyan-300 transition-all duration-300"
+            >
+              ✕
+            </button>
 
-          {showInfo && (
-            <div className="absolute bottom-8 left-8 max-w-xl bg-black/50 backdrop-blur-md border border-white/10 p-6 rounded-xl">
-              <h3 className="text-2xl md:text-3xl uppercase tracking-[0.1em] text-white">
-                {selectedImage.title}
-              </h3>
-
-              <div className="mt-3 text-cyan-300 uppercase tracking-[0.2em]">
-                {selectedImage.village}
-              </div>
-
-              <p className="mt-2 text-gray-400 leading-relaxed max-w-prose">
-                {selectedImage.description}
-              </p>
-
-              <div className="mt-6 flex flex-wrap gap-4">
-                <span className="px-4 py-2 bg-white/10 border border-white/10 text-sm uppercase tracking-[0.15em]">
-                  {selectedImage.year}
-                </span>
-
-                <span className="px-4 py-2 bg-white/10 border border-white/10 text-sm uppercase tracking-[0.15em]">
-                  {selectedImage.type}
-                </span>
-
-                {selectedImage.restored && (
-                  <span className="px-4 py-2 bg-cyan-300 text-black text-sm uppercase tracking-[0.15em]">
-                    Photo restaurée
-                  </span>
-                )}
-              </div>
+            <div className="relative w-full h-full md:max-w-6xl md:h-[85vh]">
+              <Image
+                src={selectedImage.src}
+                alt={selectedImage.title}
+                fill
+                sizes="100vw"
+                className="object-contain select-none"
+              />
             </div>
-          )}
+
+            {showInfo && (
+              <div className="absolute bottom-8 left-8 max-w-xl bg-black/50 backdrop-blur-md border border-white/10 p-6 rounded-xl">
+                <h3 className="text-2xl md:text-3xl uppercase tracking-[0.1em] text-white">
+                  {selectedImage.title}
+                </h3>
+
+                <div className="mt-3 text-cyan-300 uppercase tracking-[0.2em]">
+                  {selectedImage.village}
+                </div>
+
+                <p className="mt-2 text-gray-400 leading-relaxed max-w-prose">
+                  {selectedImage.description}
+                </p>
+
+                <div className="mt-6 flex flex-wrap gap-4">
+                  <span className="px-4 py-2 bg-white/10 border border-white/10 text-sm uppercase tracking-[0.15em]">
+                    {selectedImage.year}
+                  </span>
+
+                  <span className="px-4 py-2 bg-white/10 border border-white/10 text-sm uppercase tracking-[0.15em]">
+                    {selectedImage.type}
+                  </span>
+
+                  {selectedImage.restored && (
+                    <span className="px-4 py-2 bg-cyan-300 text-black text-sm uppercase tracking-[0.15em]">
+                      Photo restaurée
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </section>
