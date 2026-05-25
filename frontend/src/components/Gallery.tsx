@@ -147,13 +147,7 @@ export default function Gallery() {
             ✕
           </button>
 
-          <div
-            className="relative w-full h-full md:max-w-6xl md:h-[85vh]"
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowInfo(!showInfo);
-            }}
-          >
+          <div className="relative w-full h-full md:max-w-6xl md:h-[85vh]">
             <Image
               src={selectedImage.src}
               alt={selectedImage.title}
@@ -171,25 +165,26 @@ export default function Gallery() {
 
               <div className="mt-3 text-cyan-300 uppercase tracking-[0.2em]">
                 {selectedImage.village}
-                <p className="mt-2 text-gray-400 max-w-2xl leading-relaxed">
-                  {selectedImage.description}
-                </p>
+              </div>
 
-                <div className="mt-6 flex flex-wrap gap-4">
-                  <span className="px-4 py-2 bg-white/10 border border-white/10 text-sm uppercase tracking-[0.15em]">
-                    {selectedImage.year}
+              <p className="mt-2 text-gray-400 leading-relaxed max-w-prose">
+                {selectedImage.description}
+              </p>
+
+              <div className="mt-6 flex flex-wrap gap-4">
+                <span className="px-4 py-2 bg-white/10 border border-white/10 text-sm uppercase tracking-[0.15em]">
+                  {selectedImage.year}
+                </span>
+
+                <span className="px-4 py-2 bg-white/10 border border-white/10 text-sm uppercase tracking-[0.15em]">
+                  {selectedImage.type}
+                </span>
+
+                {selectedImage.restored && (
+                  <span className="px-4 py-2 bg-cyan-300 text-black text-sm uppercase tracking-[0.15em]">
+                    Photo restaurée
                   </span>
-
-                  <span className="px-4 py-2 bg-white/10 border border-white/10 text-sm uppercase tracking-[0.15em]">
-                    {selectedImage.type}
-                  </span>
-
-                  {selectedImage.restored && (
-                    <span className="px-4 py-2 bg-cyan-300 text-black text-sm uppercase tracking-[0.15em]">
-                      Photo restaurée
-                    </span>
-                  )}
-                </div>
+                )}
               </div>
             </div>
           )}
