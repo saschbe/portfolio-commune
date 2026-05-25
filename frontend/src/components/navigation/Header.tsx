@@ -89,7 +89,7 @@ export default function Header() {
         <div className="relative z-20 flex items-center justify-center min-h-screen pt-32 text-center px-6">
           <div className="max-w-4xl animate-fadeInUp">
             <p className="text-cyan-300 uppercase tracking-[0.45em] text-sm md:text-base mb-6">
-              Archives photographiques & patrimoine
+              Archives photographiques
             </p>
 
             <h1 className="text-white text-3xl md:text-5xl xl:text-6xl font-light uppercase tracking-[0.15em] leading-[1.2] drop-shadow-2xl">
