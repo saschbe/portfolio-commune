@@ -93,15 +93,16 @@ export default function Header() {
             </p>
 
             <h1 className="text-white text-3xl md:text-5xl xl:text-6xl font-light uppercase tracking-[0.15em] leading-[1.2] drop-shadow-2xl">
-              Découvrez l’histoire
+              {" "}
+              Les images d’hier
               <br />
-              de Plombières
+              et d’aujourd’hui
             </h1>
 
             <p className="mt-8 text-gray-300 text-lg md:text-xl max-w-2xl mx-auto leading-relaxed">
-              Explorez les archives, les villages, les paysages et le patrimoine
-              historique de la commune de Plombières à travers les photographies
-              anciennes et contemporaines.
+              Un espace dédié aux photographies anciennes et actuelles de la
+              commune de Plombières afin de préserver, partager et transmettre
+              la mémoire visuelle de ses villages.
             </p>
 
             <div className="mt-12 flex flex-col sm:flex-row items-center justify-center gap-6">
