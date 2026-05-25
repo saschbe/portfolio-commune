@@ -150,7 +150,13 @@ export default function Gallery() {
               ✕
             </button>
 
-            <div className="relative w-full h-full md:max-w-6xl md:h-[85vh]">
+            <div
+              className="relative w-full h-full md:max-w-6xl md:h-[85vh]"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowInfo(!showInfo);
+              }}
+            >
               <Image
                 src={selectedImage.src}
                 alt={selectedImage.title}
