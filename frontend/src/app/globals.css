@@ -79,3 +79,7 @@ body {
 .animate-slowZoom {
   animation: slowZoom 18s ease-in-out infinite alternate;
 }
+
+html {
+  scroll-behavior: smooth;
+}

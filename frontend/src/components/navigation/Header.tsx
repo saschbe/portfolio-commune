@@ -8,7 +8,7 @@ export default function Header() {
 
   return (
     <>
-      <header className="relative h-screen w-full overflow-hidden">
+      <header id="accueil" className="relative h-screen w-full overflow-hidden">
         {/* Background image */}
         <div className="absolute inset-0">
           <Image
@@ -44,13 +44,13 @@ export default function Header() {
             <nav className="hidden md:flex items-center gap-12 ml-10 text-sm uppercase tracking-[0.2em] text-white">
               {" "}
               <a
-                href="#"
+                href="#accueil"
                 className="hover:text-cyan-300 transition-all duration-300"
               >
                 Accueil
               </a>
               <a
-                href="#"
+                href="#archives"
                 className="hover:text-cyan-300 transition-all duration-300"
               >
                 Archives
