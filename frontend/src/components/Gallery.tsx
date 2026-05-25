@@ -137,12 +137,18 @@ export default function Gallery() {
           className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-xl flex items-center justify-center p-6"
           onClick={() => setSelectedImage(null)}
         >
-          <button className="absolute top-6 right-6 text-white text-5xl hover:text-cyan-300 transition-all duration-300">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setSelectedImage(null);
+            }}
+            className="absolute top-6 right-6 z-[110] text-white text-5xl hover:text-cyan-300 transition-all duration-300"
+          >
             ✕
           </button>
 
           <div
-            className="relative max-w-6xl w-full h-[85vh]"
+            className="relative w-full h-full md:max-w-6xl md:h-[85vh]"
             onClick={(e) => {
               e.stopPropagation();
               setShowInfo(!showInfo);
@@ -153,7 +159,7 @@ export default function Gallery() {
               alt={selectedImage.title}
               fill
               sizes="100vw"
-              className="object-contain"
+              className="object-contain select-none"
             />
           </div>
 
