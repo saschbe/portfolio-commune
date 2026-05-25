@@ -128,7 +128,7 @@ export default function Header() {
           <div className="md:hidden fixed inset-0 bg-black/95 backdrop-blur-xl z-40">
             <div className="flex flex-col items-center justify-center min-h-screen pt-32 gap-10 text-white text-2xl uppercase tracking-widest">
               <a
-                href="#"
+                href="#accueil"
                 onClick={() => setMobileMenuOpen(false)}
                 className="hover:text-cyan-300 transition-all duration-300"
               >
@@ -136,7 +136,7 @@ export default function Header() {
               </a>
 
               <a
-                href="#"
+                href="#archives"
                 onClick={() => setMobileMenuOpen(false)}
                 className="hover:text-cyan-300 transition-all duration-300"
               >
