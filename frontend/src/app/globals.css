@@ -83,3 +83,13 @@ body {
 html {
   scroll-behavior: smooth;
 }
+
+html,
+body {
+  overflow-x: hidden;
+  background: black;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}

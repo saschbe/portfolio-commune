@@ -139,7 +139,7 @@ export default function Gallery() {
             onClick={() => setSelectedImage(null)}
           />
 
-          <div className="relative flex items-center justify-center w-full h-full md:p-6">
+          <div className="relative flex items-center justify-center w-screen h-screen md:p-6">
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -162,7 +162,7 @@ export default function Gallery() {
                 alt={selectedImage.title}
                 fill
                 sizes="100vw"
-                className="object-contain select-none"
+                className="object-contain w-full h-full select-none"
               />
             </div>
 
