@@ -21,7 +21,7 @@ export default function Header() {
           />
 
           {/* Dark overlay */}
-          <div className="absolute inset-0 bg-black/55" />
+          <div className="absolute inset-0 bg-black/40" />
         </div>
 
         {/* Top navigation */}

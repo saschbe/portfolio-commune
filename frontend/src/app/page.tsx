@@ -55,7 +55,7 @@ export default function Home() {
                   className="object-cover group-hover:scale-110 transition-transform duration-700"
                 />
 
-                <div className="absolute inset-0 bg-black/40" />
+                <div className="absolute inset-0 bg-black/20" />
 
                 <div className="absolute bottom-4 left-4">
                   <p className="text-cyan-300 text-sm uppercase tracking-[0.3em]">
@@ -119,7 +119,7 @@ export default function Home() {
                   className="object-cover group-hover:scale-110 transition-transform duration-700"
                 />
 
-                <div className="absolute inset-0 bg-black/40" />
+                <div className="absolute inset-0 bg-black/20" />
 
                 <div className="absolute bottom-4 left-4">
                   <p className="text-cyan-300 text-sm uppercase tracking-[0.3em]">

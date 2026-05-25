@@ -61,7 +61,7 @@ export default function Gallery() {
   return (
     <section
       id="archives"
-      className="relative bg-black text-white py-32 px-6 overflow-hidden"
+      className="relative bg-black text-white py-16 px-6 overflow-hidden"
     >
       <div className="max-w-7xl mx-auto">
         {/* Title */}
@@ -78,17 +78,17 @@ export default function Gallery() {
         </div>
 
         {/* Filters */}
-        <div className="flex flex-wrap justify-center gap-4 mb-16">
+        <div className="flex md:justify-center gap-3 mb-12 overflow-x-auto md:overflow-visible scrollbar-hide pb-2 px-1">
           {filters.map((filter) => (
             <button
               key={filter}
               onClick={() => setActiveFilter(filter)}
-              className={`px-5 py-3 uppercase tracking-[0.2em] text-sm border transition-all duration-300
-              ${
-                activeFilter === filter
-                  ? "bg-cyan-300 text-black border-cyan-300"
-                  : "border-white/10 bg-white/5 hover:bg-white/10"
-              }`}
+              className={`px-4 py-2 shrink-0 text-xs md:text-sm uppercase tracking-[0.25em] border rounded-full transition-all duration-300   
+             ${
+               activeFilter === filter
+                 ? "bg-cyan-300/90 text-black border-cyan-300 shadow-[0_0_20px_rgba(34,211,238,0.25)]"
+                 : "border-white/10 bg-white/5 hover:bg-white/10"
+             }`}
             >
               {filter}
             </button>
@@ -115,7 +115,7 @@ export default function Gallery() {
                   className="object-cover group-hover:scale-105 transition-transform duration-700"
                 />
 
-                <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-all duration-500" />
+                <div className="absolute inset-0 bg-black/10 group-hover:bg-black/10 transition-all duration-500" />
               </div>
 
               <div className="absolute bottom-0 left-0 w-full p-6 bg-gradient-to-t from-black/90 to-transparent">
@@ -139,7 +139,7 @@ export default function Gallery() {
             onClick={() => setSelectedImage(null)}
           />
 
-          <div className="relative flex items-center justify-center w-screen h-screen md:p-6">
+          <div className="fixed inset-0 flex items-center justify-center bg-black">
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -151,7 +151,7 @@ export default function Gallery() {
             </button>
 
             <div
-              className="relative w-full h-full md:max-w-6xl md:h-[85vh]"
+              className="relative w-screen h-[100dvh] md:max-w-6xl md:h-[85vh]"
               onClick={(e) => {
                 e.stopPropagation();
                 setShowInfo(!showInfo);
@@ -162,12 +162,12 @@ export default function Gallery() {
                 alt={selectedImage.title}
                 fill
                 sizes="100vw"
-                className="object-contain w-full h-full select-none"
+                className="object-contain select-none"
               />
             </div>
 
             {showInfo && (
-              <div className="absolute bottom-8 left-8 max-w-xl bg-black/50 backdrop-blur-md border border-white/10 p-6 rounded-xl">
+              <div className="absolute bottom-8 left-8 max-w-xl bg-black/35 backdrop-blur-md border border-white/10 p-6 rounded-xl">
                 <h3 className="text-2xl md:text-3xl uppercase tracking-[0.1em] text-white">
                   {selectedImage.title}
                 </h3>

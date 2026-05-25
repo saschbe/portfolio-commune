@@ -39,25 +39,33 @@ export default function TimelineSection() {
           </p>
         </div>
 
-        {/* Mobile arrows */}
-        <div className="flex md:hidden justify-between items-center mb-2 px-6 text-cyan-300 animate-pulse">
+        {/* Timeline navigation hint */}
+        <div className="flex justify-between items-center px-6 mb-4 text-cyan-300 animate-pulse pointer-events-none">
           <span className="text-2xl">←</span>
 
-          <span className="text-sm tracking-widest uppercase opacity-70">
-            Faites glisser
-          </span>
+          <div className="text-center">
+            {/* Mobile */}
+            <span className="md:hidden text-sm tracking-widest uppercase opacity-70">
+              Faites glisser
+            </span>
+
+            {/* Desktop */}
+            <span className="hidden md:inline text-sm tracking-widest uppercase opacity-70">
+              Utilisez la souris ou les flèches du clavier
+            </span>
+          </div>
 
           <span className="text-2xl">→</span>
         </div>
 
         {/* Timeline */}
-        <div className="overflow-x-auto relative z-0 scrollbar-hide">
-          <div className="relative min-w-[900px] py-10">
+        <div className="overflow-x-auto relative z-0 scrollbar-hide md:scrollbar-thin cursor-grab active:cursor-grabbing">
+          <div className="relative w-max min-w-full py-10">
             {/* Ligne */}
             <div className="absolute top-[52px] left-0 w-full h-[2px] bg-cyan-400/70" />
 
             {/* Années */}
-            <div className="flex justify-between relative z-10">
+            <div className="flex gap-24 min-w-max relative z-10 px-6">
               {years.map((item) => (
                 <div
                   key={item.year}

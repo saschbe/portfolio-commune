@@ -86,10 +86,36 @@ html {
 
 html,
 body {
-  overflow-x: hidden;
+  overflow-x: clip;
   background: black;
 }
 
 * {
   -webkit-tap-highlight-color: transparent;
+}
+
+/* Desktop scrollbar */
+.scrollbar-thin::-webkit-scrollbar {
+  height: 8px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: rgba(34, 211, 238, 0.3);
+  border-radius: 999px;
+}
+
+/* Desktop timeline scrollbar */
+@media (min-width: 768px) {
+  .scrollbar-thin::-webkit-scrollbar {
+    height: 10px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.25);
+    border-radius: 999px;
+  }
 }
