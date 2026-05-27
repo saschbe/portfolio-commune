@@ -19,6 +19,7 @@ const images = [
     title: "Mine du Bleyberg",
     village: "Plombières",
     year: "1902",
+    timeline: "1902",
     type: "Photo ancienne",
     restored: true,
     description:
@@ -30,6 +31,7 @@ const images = [
     title: "Viaduc de Moresnet",
     village: "Moresnet",
     year: "1916",
+    timeline: "1916",
     type: "Archive historique",
     restored: false,
     description:
@@ -41,6 +43,7 @@ const images = [
     title: "Ancienne commune",
     village: "Montzen",
     year: "1977",
+    timeline: "1977",
     type: "Document communal",
     restored: false,
     description:
@@ -48,15 +51,26 @@ const images = [
   },
 ];
 
-export default function Gallery() {
+export default function Gallery({
+  selectedTimeline,
+  setSelectedTimeline,
+}: {
+  selectedTimeline: string | null;
+  setSelectedTimeline: (value: string | null) => void;
+}) {
   const [activeFilter, setActiveFilter] = useState("Tous");
   const [selectedImage, setSelectedImage] = useState<any>(null);
   const [showInfo, setShowInfo] = useState(true);
 
-  const filteredImages =
-    activeFilter === "Tous"
-      ? images
-      : images.filter((image) => image.village === activeFilter);
+  const filteredImages = images.filter((image) => {
+    const villageMatch =
+      activeFilter === "Tous" || image.village === activeFilter;
+
+    const timelineMatch =
+      !selectedTimeline || image.timeline === selectedTimeline;
+
+    return villageMatch && timelineMatch;
+  });
 
   return (
     <section
@@ -70,7 +84,7 @@ export default function Gallery() {
             Galerie
           </p>
 
-          <h2 className="text-2xl md:text-3xl md:text-5xl xl:text-6xl font-light uppercase tracking-[0.15em] leading-[1.2]">
+          <h2 className="text-2xl md:text-5xl xl:text-6xl font-light uppercase tracking-[0.15em] leading-[1.2]">
             Les images d’hier
             <br />
             et d’aujourd’hui
@@ -82,7 +96,13 @@ export default function Gallery() {
           {filters.map((filter) => (
             <button
               key={filter}
-              onClick={() => setActiveFilter(filter)}
+              onClick={() => {
+                setActiveFilter(filter);
+
+                if (filter === "Tous") {
+                  setSelectedTimeline(null);
+                }
+              }}
               className={`px-4 py-2 shrink-0 text-xs md:text-sm uppercase tracking-[0.25em] border rounded-full transition-all duration-300   
              ${
                activeFilter === filter

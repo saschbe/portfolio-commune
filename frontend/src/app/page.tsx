@@ -5,8 +5,10 @@ import TimelineSection from "../components/timeline/TimelineSection";
 import SectionTitle from "@/components/SectionTitle";
 import Image from "next/image";
 import Gallery from "@/components/Gallery";
+import { useState } from "react";
 
 export default function Home() {
+  const [selectedTimeline, setSelectedTimeline] = useState<string | null>(null);
   return (
     <>
       <Header />
@@ -142,10 +144,12 @@ export default function Home() {
         </div>
       </section>
 
-      <Gallery />
-
+      <Gallery
+        selectedTimeline={selectedTimeline}
+        setSelectedTimeline={setSelectedTimeline}
+      />
       <main className="min-h-screen bg-black text-white overflow-x-hidden">
-        <TimelineSection />
+        <TimelineSection setSelectedTimeline={setSelectedTimeline} />
       </main>
     </>
   );

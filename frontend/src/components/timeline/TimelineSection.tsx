@@ -1,4 +1,8 @@
-export default function TimelineSection() {
+export default function TimelineSection({
+  setSelectedTimeline,
+}: {
+  setSelectedTimeline: (value: string) => void;
+}) {
   const years = [
     {
       year: "1882",
@@ -41,7 +45,7 @@ export default function TimelineSection() {
 
         {/* Timeline navigation hint */}
         <div className="flex justify-between items-center px-6 mb-4 text-cyan-300 animate-pulse pointer-events-none">
-          <span className="text-2xl">←</span>
+          <span className="text-2xl md:hidden">←</span>
 
           <div className="text-center">
             {/* Mobile */}
@@ -50,25 +54,30 @@ export default function TimelineSection() {
             </span>
 
             {/* Desktop */}
-            <span className="hidden md:inline text-sm tracking-widest uppercase opacity-70">
-              Utilisez la souris ou les flèches du clavier
-            </span>
           </div>
 
-          <span className="text-2xl">→</span>
+          <span className="text-2xl md:hidden">→</span>
         </div>
 
         {/* Timeline */}
-        <div className="overflow-x-auto relative z-0 scrollbar-hide md:scrollbar-thin cursor-grab active:cursor-grabbing">
+        <div className="overflow-x-auto relative z-0 scrollbar-hide md:scrollbar-thin ">
           <div className="relative w-max min-w-full py-10">
             {/* Ligne */}
             <div className="absolute top-[52px] left-0 w-full h-[2px] bg-cyan-400/70" />
 
             {/* Années */}
-            <div className="flex gap-24 min-w-max relative z-10 px-6">
+            <div className="flex justify-between min-w-[900px] relative z-10 px-6 gap-8">
               {years.map((item) => (
                 <div
                   key={item.year}
+                  onClick={() => {
+                    setSelectedTimeline(item.year);
+
+                    document.getElementById("archives")?.scrollIntoView({
+                      behavior: "smooth",
+                      block: "start",
+                    });
+                  }}
                   className="flex flex-col items-center min-w-[120px] group cursor-pointer"
                 >
                   {/* Point */}
