@@ -108,8 +108,14 @@ export default function DashboardPage() {
         .select("role, notif_new_photo")
         .eq("id", data.user.id)
         .single()
-        .then(({ data: profile }) => {
+        .then(({ data: profile, error }) => {
+          console.log("[dashboard] profile:", profile, "error:", error);
+          if (error) {
+            console.error("[dashboard] Erreur chargement profil:", error.message, error);
+            return;
+          }
           if (profile) {
+            console.log("[dashboard] role chargé:", profile.role);
             setRole(profile.role ?? "user");
             setNotifNewPhoto(profile.notif_new_photo ?? false);
           }

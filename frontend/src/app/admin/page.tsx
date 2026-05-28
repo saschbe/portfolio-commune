@@ -23,6 +23,9 @@ export default function AdminPage() {
   const [activeSection, setActiveSection] = useState<Section>("photos");
   const [pendingCount, setPendingCount] = useState(0);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [currentRole, setCurrentRole] = useState<string>("");
+  const [notifNewPhoto, setNotifNewPhoto] = useState(false);
+  const [savingNotif, setSavingNotif] = useState(false);
 
   useEffect(() => {
     supabase
@@ -30,7 +33,34 @@ export default function AdminPage() {
       .select("*", { count: "exact", head: true })
       .eq("status", "pending")
       .then(({ count }) => setPendingCount(count ?? 0));
+
+    supabase.auth.getUser().then(({ data }) => {
+      if (!data.user) return;
+      supabase
+        .from("profiles")
+        .select("role, notif_new_photo")
+        .eq("id", data.user.id)
+        .single()
+        .then(({ data: profile }) => {
+          if (profile) {
+            setCurrentRole(profile.role ?? "");
+            setNotifNewPhoto(profile.notif_new_photo ?? false);
+          }
+        });
+    });
   }, []);
+
+  async function handleNotifToggle(value: boolean) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    setSavingNotif(true);
+    setNotifNewPhoto(value);
+    await supabase
+      .from("profiles")
+      .update({ notif_new_photo: value })
+      .eq("id", user.id);
+    setSavingNotif(false);
+  }
 
   async function handleLogout() {
     await supabase.auth.signOut();
@@ -85,6 +115,33 @@ export default function AdminPage() {
           {sidebarLinks}
         </nav>
 
+        {currentRole === "moderator" && (
+          <div className="mb-3 pt-4 border-t border-white/5">
+            <p className="px-4 text-[10px] uppercase tracking-[0.25em] text-white/25 mb-3">
+              Préférences
+            </p>
+            <div className="flex items-center justify-between gap-2 px-4 py-2">
+              <p className="text-xs text-white/45 leading-tight">
+                Notif. nouvelles photos
+              </p>
+              <button
+                onClick={() => handleNotifToggle(!notifNewPhoto)}
+                disabled={savingNotif}
+                aria-label="Activer les notifications"
+                className={`relative shrink-0 w-9 h-5 rounded-full transition-all duration-300 disabled:opacity-50 ${
+                  notifNewPhoto ? "bg-cyan-300/80" : "bg-white/10"
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-300 ${
+                    notifNewPhoto ? "translate-x-4" : "translate-x-0"
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
+        )}
+
         <button
           onClick={handleLogout}
           className="text-left px-4 py-3 text-xs uppercase tracking-[0.2em] text-white/25 hover:text-white/50 transition-colors"
@@ -118,6 +175,32 @@ export default function AdminPage() {
             </Link>
             {sidebarLinks}
           </nav>
+          {currentRole === "moderator" && (
+            <div className="mb-3 pt-4 border-t border-white/5">
+              <p className="text-[10px] uppercase tracking-[0.25em] text-white/25 mb-3">
+                Préférences
+              </p>
+              <div className="flex items-center justify-between gap-2 py-2">
+                <p className="text-xs text-white/45 leading-tight">
+                  Notif. nouvelles photos
+                </p>
+                <button
+                  onClick={() => handleNotifToggle(!notifNewPhoto)}
+                  disabled={savingNotif}
+                  aria-label="Activer les notifications"
+                  className={`relative shrink-0 w-9 h-5 rounded-full transition-all duration-300 disabled:opacity-50 ${
+                    notifNewPhoto ? "bg-cyan-300/80" : "bg-white/10"
+                  }`}
+                >
+                  <span
+                    className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-300 ${
+                      notifNewPhoto ? "translate-x-4" : "translate-x-0"
+                    }`}
+                  />
+                </button>
+              </div>
+            </div>
+          )}
           <button
             onClick={handleLogout}
             className="py-5 text-xs uppercase tracking-[0.2em] text-white/25 hover:text-white/50 transition-colors"

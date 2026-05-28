@@ -23,27 +23,49 @@ export default function UsersSection() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [updateError, setUpdateError] = useState<string | null>(null);
 
   useEffect(() => {
     loadProfiles();
   }, []);
 
   async function loadProfiles() {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("profiles")
       .select("*")
       .order("role");
+    if (error) console.error("[users] loadProfiles:", error);
     setProfiles(data ?? []);
     setLoading(false);
   }
 
   async function handleRoleChange(id: string, newRole: string) {
     setUpdatingId(id);
-    await supabase.from("profiles").update({ role: newRole }).eq("id", id);
-    setProfiles((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, role: newRole } : p))
-    );
-    setUpdatingId(null);
+    setUpdateError(null);
+    console.log("[users] update role — id:", id, "→", newRole);
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .update({ role: newRole })
+        .eq("id", id)
+        .select();
+      console.log("[users] update role — response:", { data, error });
+      if (error) {
+        setUpdateError(`Erreur : ${error.message}`);
+        return;
+      }
+      if (!data || data.length === 0) {
+        const msg = "Aucune ligne mise à jour — vérifiez les politiques RLS de la table profiles.";
+        console.warn("[users]", msg);
+        setUpdateError(msg);
+        return;
+      }
+      setProfiles((prev) =>
+        prev.map((p) => (p.id === id ? { ...p, role: newRole } : p))
+      );
+    } finally {
+      setUpdatingId(null);
+    }
   }
 
   return (
@@ -54,6 +76,12 @@ export default function UsersSection() {
       <p className="text-white/30 text-xs uppercase tracking-[0.25em] mb-8">
         {profiles.length} compte{profiles.length !== 1 ? "s" : ""}
       </p>
+
+      {updateError && (
+        <p className="mb-6 text-red-400 text-xs uppercase tracking-[0.2em]">
+          {updateError}
+        </p>
+      )}
 
       {loading ? (
         <p className="text-white/30 uppercase tracking-[0.3em] text-xs py-8">

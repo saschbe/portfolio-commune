@@ -53,8 +53,9 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL("/dashboard", request.url));
     }
 
-    // /dashboard — les admins/modérateurs sont redirigés vers /admin
-    if (pathname.startsWith("/dashboard") && isPrivileged) {
+    // /dashboard — seuls les admins sont redirigés vers /admin
+    // les modérateurs restent sur /dashboard pour accéder à leurs préférences
+    if (pathname.startsWith("/dashboard") && role === "admin") {
       return NextResponse.redirect(new URL("/admin", request.url));
     }
   }
