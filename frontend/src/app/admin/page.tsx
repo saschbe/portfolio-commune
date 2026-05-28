@@ -108,7 +108,16 @@ export default function AdminPage() {
       {/* Overlay — mobile */}
       {mobileOpen && (
         <div className="md:hidden fixed inset-0 z-30 bg-black pt-14 px-5 flex flex-col">
-          <nav className="flex flex-col gap-1 pt-6 flex-1">{sidebarLinks}</nav>
+          <nav className="flex flex-col gap-1 pt-6 flex-1">
+            <Link
+              href="/"
+              onClick={() => setMobileOpen(false)}
+              className="text-left px-4 py-3 rounded-xl text-sm uppercase tracking-[0.2em] text-white/50 hover:text-white/80 hover:bg-white/5 transition-all duration-200"
+            >
+              ← Retour au site
+            </Link>
+            {sidebarLinks}
+          </nav>
           <button
             onClick={handleLogout}
             className="py-5 text-xs uppercase tracking-[0.2em] text-white/25 hover:text-white/50 transition-colors"

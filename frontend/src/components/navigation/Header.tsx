@@ -253,22 +253,22 @@ export default function Header() {
               </a>
 
               {/* Auth — mobile */}
-              <div className="border-t border-white/10 pt-8 w-48 flex flex-col items-center gap-4">
+              <div className="border-t border-white/10 pt-8 flex flex-col items-center gap-6">
                 {user ? (
                   <>
-                    <p className="text-sm text-white/40 tracking-normal normal-case truncate max-w-full">
+                    <p className="text-sm text-white/35 tracking-normal normal-case">
                       {displayName}
                     </p>
                     <Link
                       href={spaceHref}
                       onClick={() => setMobileMenuOpen(false)}
-                      className="text-base text-cyan-300 hover:text-cyan-200 transition-colors"
+                      className="hover:text-cyan-300 transition-all duration-300"
                     >
                       {spaceLabel}
                     </Link>
                     <button
                       onClick={handleLogout}
-                      className="text-base text-white/40 hover:text-red-400 transition-colors"
+                      className="hover:text-cyan-300 transition-all duration-300"
                     >
                       Se déconnecter
                     </button>
@@ -277,10 +277,9 @@ export default function Header() {
                   <Link
                     href="/login"
                     onClick={() => setMobileMenuOpen(false)}
-                    aria-label="Se connecter"
-                    className="text-white/70 hover:text-cyan-300 transition-colors"
+                    className="hover:text-cyan-300 transition-all duration-300"
                   >
-                    <UserIcon />
+                    Se connecter
                   </Link>
                 )}
               </div>
