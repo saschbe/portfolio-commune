@@ -29,10 +29,13 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (request.nextUrl.pathname.startsWith("/admin")) {
+  const { pathname } = request.nextUrl;
+
+  // Routes protégées — nécessitent une session
+  if (pathname.startsWith("/admin") || pathname.startsWith("/dashboard")) {
     if (!user) {
       const loginUrl = new URL("/login", request.url);
-      loginUrl.searchParams.set("next", request.nextUrl.pathname);
+      loginUrl.searchParams.set("next", pathname);
       return NextResponse.redirect(loginUrl);
     }
 
@@ -42,8 +45,17 @@ export async function middleware(request: NextRequest) {
       .eq("id", user.id)
       .single();
 
-    if (!profile || !["admin", "moderator"].includes(profile.role)) {
-      return NextResponse.redirect(new URL("/", request.url));
+    const role = profile?.role ?? "user";
+    const isPrivileged = ["admin", "moderator"].includes(role);
+
+    // /admin — réservé aux admins et modérateurs
+    if (pathname.startsWith("/admin") && !isPrivileged) {
+      return NextResponse.redirect(new URL("/dashboard", request.url));
+    }
+
+    // /dashboard — les admins/modérateurs sont redirigés vers /admin
+    if (pathname.startsWith("/dashboard") && isPrivileged) {
+      return NextResponse.redirect(new URL("/admin", request.url));
     }
   }
 
@@ -51,5 +63,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*"],
+  matcher: ["/admin/:path*", "/dashboard/:path*"],
 };

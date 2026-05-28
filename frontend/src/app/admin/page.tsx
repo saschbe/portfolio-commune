@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import PhotosSection from "./_components/PhotosSection";
 import UsersSection from "./_components/UsersSection";
@@ -72,7 +73,15 @@ export default function AdminPage() {
           </p>
         </div>
 
-        <nav className="flex flex-col gap-1 flex-1">{sidebarLinks}</nav>
+        <nav className="flex flex-col gap-1 flex-1">
+          <Link
+            href="/"
+            className="text-left px-4 py-3 rounded-xl text-sm uppercase tracking-[0.2em] text-white/50 hover:text-white/80 hover:bg-white/5 transition-all duration-200"
+          >
+            ← Retour au site
+          </Link>
+          {sidebarLinks}
+        </nav>
 
         <button
           onClick={handleLogout}

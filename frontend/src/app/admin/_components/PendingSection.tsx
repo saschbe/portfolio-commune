@@ -24,54 +24,68 @@ export default function PendingSection({
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   useEffect(() => {
     loadPending();
   }, []);
 
+  useEffect(() => {
+    onCountChange(photos.length);
+  }, [photos, onCountChange]);
+
   async function loadPending() {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("photos")
       .select("*")
       .eq("status", "pending")
       .order("created_at", { ascending: false });
+    if (error) console.error("[pending] loadPending:", error);
     const list = data ?? [];
     setPhotos(list);
-    onCountChange(list.length);
     setLoading(false);
   }
 
   async function handleApprove(photo: Photo) {
     setProcessingId(photo.id);
-    await supabase
-      .from("photos")
-      .update({ status: "approved" })
-      .eq("id", photo.id);
-    setPhotos((prev) => {
-      const next = prev.filter((p) => p.id !== photo.id);
-      onCountChange(next.length);
-      return next;
-    });
-    setProcessingId(null);
+    setActionError(null);
+    try {
+      const { error } = await supabase
+        .from("photos")
+        .update({ status: "approved" })
+        .eq("id", photo.id);
+      if (error) {
+        console.error("[pending] approve:", error);
+        setActionError(`Erreur lors de l'approbation : ${error.message}`);
+        return;
+      }
+      await loadPending();
+    } finally {
+      setProcessingId(null);
+    }
   }
 
   async function handleReject(photo: Photo) {
-    if (
-      !window.confirm(
-        `Rejeter et supprimer définitivement "${photo.title}" ?`
-      )
-    )
+    if (!window.confirm(`Rejeter et supprimer définitivement "${photo.title}" ?`))
       return;
     setProcessingId(photo.id);
-    const filename = photo.src.split("/").pop();
-    if (filename) await supabase.storage.from("photos").remove([filename]);
-    await supabase.from("photos").delete().eq("id", photo.id);
-    setPhotos((prev) => {
-      const next = prev.filter((p) => p.id !== photo.id);
-      onCountChange(next.length);
-      return next;
-    });
-    setProcessingId(null);
+    setActionError(null);
+    try {
+      const filename = photo.src.split("/").pop();
+      if (filename) await supabase.storage.from("photos").remove([filename]);
+      const { error } = await supabase
+        .from("photos")
+        .delete()
+        .eq("id", photo.id);
+      if (error) {
+        console.error("[pending] reject:", error);
+        setActionError(`Erreur lors du rejet : ${error.message}`);
+        return;
+      }
+      await loadPending();
+    } finally {
+      setProcessingId(null);
+    }
   }
 
   return (
@@ -82,6 +96,12 @@ export default function PendingSection({
       <p className="text-white/30 text-xs uppercase tracking-[0.25em] mb-8">
         Photos soumises en attente de validation
       </p>
+
+      {actionError && (
+        <p className="mb-6 text-red-400 text-xs uppercase tracking-[0.2em]">
+          {actionError}
+        </p>
+      )}
 
       {loading ? (
         <p className="text-white/30 uppercase tracking-[0.3em] text-xs py-8">
