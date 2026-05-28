@@ -85,6 +85,9 @@ function StatusBadge({ status }: { status: PhotoStatus }) {
 export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
+  const [role, setRole] = useState<string>("user");
+  const [notifNewPhoto, setNotifNewPhoto] = useState(false);
+  const [savingNotif, setSavingNotif] = useState(false);
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [loadingPhotos, setLoadingPhotos] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -100,6 +103,17 @@ export default function DashboardPage() {
       if (!data.user) { router.push("/login"); return; }
       setUser(data.user);
       loadPhotos(data.user.id);
+      supabase
+        .from("profiles")
+        .select("role, notif_new_photo")
+        .eq("id", data.user.id)
+        .single()
+        .then(({ data: profile }) => {
+          if (profile) {
+            setRole(profile.role ?? "user");
+            setNotifNewPhoto(profile.notif_new_photo ?? false);
+          }
+        });
     });
   }, [router]);
 
@@ -174,6 +188,17 @@ export default function DashboardPage() {
     setShowForm(false);
     await loadPhotos(user.id);
     setSubmitStatus("success");
+  }
+
+  async function handleNotifToggle(value: boolean) {
+    if (!user) return;
+    setSavingNotif(true);
+    setNotifNewPhoto(value);
+    await supabase
+      .from("profiles")
+      .update({ notif_new_photo: value })
+      .eq("id", user.id);
+    setSavingNotif(false);
   }
 
   async function handleLogout() {
@@ -478,6 +503,45 @@ export default function DashboardPage() {
               </div>
             )}
           </div>
+
+          {/* Préférences — modérateurs uniquement */}
+          {role === "moderator" && (
+            <>
+              <div className="border-t border-white/5 my-10" />
+              <div>
+                <h2 className="text-xs uppercase tracking-[0.35em] text-white/50 mb-6">
+                  Préférences
+                </h2>
+                <div className="bg-white/2 border border-white/10 rounded-2xl px-5 py-4">
+                  <div className="flex items-center justify-between gap-6">
+                    <div className="min-w-0">
+                      <p className="text-sm">
+                        Notifications — nouvelles photos
+                      </p>
+                      <p className="text-xs text-white/35 mt-1 leading-relaxed">
+                        Recevoir un email à chaque nouvelle photo soumise par
+                        un utilisateur.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => handleNotifToggle(!notifNewPhoto)}
+                      disabled={savingNotif}
+                      aria-label="Activer les notifications"
+                      className={`relative shrink-0 w-11 h-6 rounded-full transition-all duration-300 disabled:opacity-50 ${
+                        notifNewPhoto ? "bg-cyan-300/80" : "bg-white/10"
+                      }`}
+                    >
+                      <span
+                        className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-300 ${
+                          notifNewPhoto ? "translate-x-5" : "translate-x-0"
+                        }`}
+                      />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </main>
     </div>
