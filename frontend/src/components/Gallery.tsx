@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
+import { supabase } from "@/lib/supabase";
 
 const filters = [
   "Tous",
@@ -13,43 +14,16 @@ const filters = [
   "Sippenaeken",
 ];
 
-const images = [
-  {
-    src: "/images/mine.jpg",
-    title: "Mine du Bleyberg",
-    village: "Plombières",
-    year: "1902",
-    timeline: "1902",
-    type: "Photo ancienne",
-    restored: true,
-    description:
-      "Photographie des anciennes installations minières du Bleyberg durant l’âge d’or industriel du zinc et du plomb.",
-  },
-
-  {
-    src: "/images/viaduc.jpeg",
-    title: "Viaduc de Moresnet",
-    village: "Moresnet",
-    year: "1916",
-    timeline: "1916",
-    type: "Archive historique",
-    restored: false,
-    description:
-      "Construction du viaduc stratégique durant la Première Guerre mondiale.",
-  },
-
-  {
-    src: "/images/commune.jpg",
-    title: "Ancienne commune",
-    village: "Montzen",
-    year: "1977",
-    timeline: "1977",
-    type: "Document communal",
-    restored: false,
-    description:
-      "Fusion des anciennes communes donnant naissance à l’entité actuelle de Plombières.",
-  },
-];
+type Photo = {
+  src: string;
+  title: string;
+  village: string;
+  year: string;
+  timeline: string;
+  type: string;
+  restored: boolean;
+  description: string;
+};
 
 export default function Gallery({
   selectedTimeline,
@@ -59,10 +33,27 @@ export default function Gallery({
   setSelectedTimeline: (value: string | null) => void;
 }) {
   const [activeFilter, setActiveFilter] = useState("Tous");
-  const [selectedImage, setSelectedImage] = useState<any>(null);
+  const [selectedImage, setSelectedImage] = useState<Photo | null>(null);
   const [showInfo, setShowInfo] = useState(true);
+  const [photos, setPhotos] = useState<Photo[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const filteredImages = images.filter((image) => {
+  useEffect(() => {
+    supabase
+      .from("photos")
+      .select("*")
+      .then(({ data, error }) => {
+        if (error) {
+          setError(error.message);
+        } else {
+          setPhotos(data ?? []);
+        }
+        setLoading(false);
+      });
+  }, []);
+
+  const filteredImages = photos.filter((image) => {
     const villageMatch =
       activeFilter === "Tous" || image.village === activeFilter;
 
@@ -118,6 +109,16 @@ export default function Gallery({
         </div>
 
         {/* Gallery */}
+        {loading && (
+          <p className="text-center text-white/40 uppercase tracking-[0.3em] text-sm py-12">
+            Chargement…
+          </p>
+        )}
+        {error && (
+          <p className="text-center text-red-400 uppercase tracking-[0.3em] text-sm py-12">
+            Erreur : {error}
+          </p>
+        )}
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           {filteredImages.map((image, index) => (
             <div
@@ -192,9 +193,9 @@ export default function Gallery({
 
             <div className="absolute top-6 left-6 z-[120] text-white/60 text-sm uppercase tracking-[0.3em]">
               {String(
-                images.findIndex((img) => img.src === selectedImage.src) + 1,
+                photos.findIndex((img) => img.src === selectedImage.src) + 1,
               ).padStart(2, "0")}{" "}
-              / {String(images.length).padStart(2, "0")}
+              / {String(photos.length).padStart(2, "0")}
             </div>
 
             {showInfo && (
