@@ -160,6 +160,16 @@ export default function DashboardPage() {
       return;
     }
 
+    // Notifier les admins/modérateurs — échec non bloquant
+    fetch(
+      "https://fjglbztexnntivdrjhbv.supabase.co/functions/v1/notify-new-photo",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: form.title, village: form.village }),
+      }
+    ).catch((err) => console.warn("[notify-new-photo]", err));
+
     setForm(defaultForm);
     setShowForm(false);
     await loadPhotos(user.id);

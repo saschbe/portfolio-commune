@@ -67,6 +67,11 @@ export default function PendingSection({
         setActionError(msg);
         return;
       }
+      await supabase.from("activites").insert({
+        type: "photo_approuvee",
+        description: `Photo approuvée : "${photo.title}" (${photo.village})`,
+        meta: { photo_id: photo.id, title: photo.title, village: photo.village },
+      });
       await loadPending();
     } finally {
       setProcessingId(null);
@@ -104,6 +109,11 @@ export default function PendingSection({
         setActionError(msg);
         return;
       }
+      await supabase.from("activites").insert({
+        type: "photo_rejetee",
+        description: `Photo rejetée : "${photo.title}" (${photo.village})`,
+        meta: { photo_id: photo.id, title: photo.title, village: photo.village },
+      });
       await loadPending();
     } finally {
       setProcessingId(null);

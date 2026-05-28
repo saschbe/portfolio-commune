@@ -53,6 +53,12 @@ export default function RegisterPage() {
       await supabase
         .from("profiles")
         .upsert({ id: data.user.id, role: "user" }, { onConflict: "id" });
+
+      await supabase.from("activites").insert({
+        type: "new_member",
+        description: `Nouvel inscrit : ${data.user.email}`,
+        meta: { email: data.user.email, user_id: data.user.id },
+      });
     }
 
     setStatus("success");
