@@ -67,7 +67,9 @@ export default function Gallery({
       activeFilter === "Tous" || image.village === activeFilter;
 
     const timelineMatch =
-      !selectedTimeline || image.timeline === selectedTimeline;
+      activeFilter === "Tous"
+        ? true
+        : !selectedTimeline || image.timeline === selectedTimeline;
 
     return villageMatch && timelineMatch;
   });
@@ -92,16 +94,16 @@ export default function Gallery({
         </div>
 
         {/* Filters */}
-        <div className="flex md:justify-center gap-3 mb-12 overflow-x-auto md:overflow-visible scrollbar-hide pb-2 px-1">
+        <div className="flex md:flex-wrap md:justify-center gap-3 mb-12 overflow-x-auto md:overflow-visible scrollbar-hide pb-2 px-1">
           {filters.map((filter) => (
             <button
               key={filter}
               onClick={() => {
-                setActiveFilter(filter);
-
                 if (filter === "Tous") {
                   setSelectedTimeline(null);
                 }
+
+                setActiveFilter(filter);
               }}
               className={`px-4 py-2 shrink-0 text-xs md:text-sm uppercase tracking-[0.25em] border rounded-full transition-all duration-300   
              ${
@@ -116,7 +118,7 @@ export default function Gallery({
         </div>
 
         {/* Gallery */}
-        <div className="columns-1 md:columns-2 xl:columns-3 gap-6 space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           {filteredImages.map((image, index) => (
             <div
               key={index}
@@ -124,18 +126,20 @@ export default function Gallery({
                 setSelectedImage(image);
                 setShowInfo(true);
               }}
-              className="group relative overflow-hidden bg-white/5 border border-white/10 break-inside-avoid"
+              className="group relative mb-6 overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] backdrop-blur-md  transition-all duration-700 hover:-translate-y-2 hover:border-cyan-300/30 hover:bg-white/[0.05] hover:shadow-[0_20px_80px_rgba(34,211,238,0.12)] "
             >
-              <div className="relative min-h-[300px]">
+              <div
+                className={`relative ${index % 3 === 0 ? "min-h-[520px]" : index % 2 === 0 ? "min-h-[420px]" : "min-h-[340px]"}`}
+              >
                 <Image
                   src={image.src}
                   alt={image.title}
                   fill
                   sizes="(max-width: 768px) 100vw, 33vw"
-                  className="object-cover group-hover:scale-105 transition-transform duration-700"
+                  className="object-cover transition-all duration-[2000ms] ease-out group-hover:scale-110 group-hover:brightness-110"
                 />
 
-                <div className="absolute inset-0 bg-black/10 group-hover:bg-black/10 transition-all duration-500" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent opacity-80 group-hover:opacity-100 transition-all duration-700" />
               </div>
 
               <div className="absolute bottom-0 left-0 w-full p-6 bg-gradient-to-t from-black/90 to-transparent">
@@ -159,7 +163,7 @@ export default function Gallery({
             onClick={() => setSelectedImage(null)}
           />
 
-          <div className="fixed inset-0 flex items-center justify-center bg-black">
+          <div className="fixed inset-0 flex items-center justify-center bg-gradient-to-b from-black via-zinc-950 to-black">
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -182,13 +186,20 @@ export default function Gallery({
                 alt={selectedImage.title}
                 fill
                 sizes="100vw"
-                className="object-contain select-none"
+                className="object-contain select-none animate-[fadeIn_0.8s_ease]"
               />
             </div>
 
+            <div className="absolute top-6 left-6 z-[120] text-white/60 text-sm uppercase tracking-[0.3em]">
+              {String(
+                images.findIndex((img) => img.src === selectedImage.src) + 1,
+              ).padStart(2, "0")}{" "}
+              / {String(images.length).padStart(2, "0")}
+            </div>
+
             {showInfo && (
-              <div className="absolute bottom-8 left-8 max-w-xl bg-black/35 backdrop-blur-md border border-white/10 p-6 rounded-xl">
-                <h3 className="text-2xl md:text-3xl uppercase tracking-[0.1em] text-white">
+              <div className="absolute bottom-6 left-6 md:bottom-10 md:left-10 max-w-xl bg-black/30 backdrop-blur-2xl border border-white/10 p-6 md:p-8 rounded-3xl shadow-[0_0_60px_rgba(0,0,0,0.45)] transition-all duration-700">
+                <h3 className="text-3xl md:text-5xl font-light uppercase tracking-[0.14em] text-white leading-tight">
                   {selectedImage.title}
                 </h3>
 
