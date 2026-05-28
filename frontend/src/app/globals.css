@@ -92,3 +92,28 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* ── Leaflet dark popup ─────────────────────────────────── */
+.leaflet-popup-dark .leaflet-popup-content-wrapper {
+  background: rgba(10, 10, 10, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 0;
+}
+.leaflet-popup-dark .leaflet-popup-content {
+  margin: 0;
+}
+.leaflet-popup-dark .leaflet-popup-tip-container {
+  display: none;
+}
+.leaflet-popup-dark .leaflet-popup-close-button {
+  color: rgba(255, 255, 255, 0.3) !important;
+  font-size: 18px;
+  top: 6px;
+  right: 8px;
+}
+.leaflet-popup-dark .leaflet-popup-close-button:hover {
+  color: white !important;
+}
+

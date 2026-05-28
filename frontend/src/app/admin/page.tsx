@@ -7,11 +7,13 @@ import { supabase } from "@/lib/supabase";
 import PhotosSection from "./_components/PhotosSection";
 import UsersSection from "./_components/UsersSection";
 import PendingSection from "./_components/PendingSection";
+import LieuxSection from "./_components/LieuxSection";
 
-type Section = "photos" | "pending" | "users";
+type Section = "photos" | "lieux" | "pending" | "users";
 
 const navItems: { id: Section; label: string }[] = [
   { id: "photos", label: "Photos" },
+  { id: "lieux", label: "Lieux" },
   { id: "pending", label: "En attente d'approbation" },
   { id: "users", label: "Utilisateurs" },
 ];
@@ -119,6 +121,7 @@ export default function AdminPage() {
       {/* Main content */}
       <main className="flex-1 overflow-y-auto px-5 py-8 md:px-10 pt-20 md:pt-8">
         {activeSection === "photos" && <PhotosSection />}
+        {activeSection === "lieux" && <LieuxSection />}
         {activeSection === "users" && <UsersSection />}
         {activeSection === "pending" && (
           <PendingSection onCountChange={setPendingCount} />
