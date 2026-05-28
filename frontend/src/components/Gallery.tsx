@@ -137,6 +137,7 @@ export default function Gallery({
                   alt={image.title}
                   fill
                   sizes="(max-width: 768px) 100vw, 33vw"
+                  loading={index === 0 ? "eager" : "lazy"}
                   className="object-cover transition-all duration-[2000ms] ease-out group-hover:scale-110 group-hover:brightness-110"
                 />
 
