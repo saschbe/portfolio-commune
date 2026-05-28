@@ -49,14 +49,22 @@ export default function PendingSection({
   async function handleApprove(photo: Photo) {
     setProcessingId(photo.id);
     setActionError(null);
+    console.log("[pending] approve — id:", photo.id);
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("photos")
         .update({ status: "approved" })
-        .eq("id", photo.id);
+        .eq("id", photo.id)
+        .select();
+      console.log("[pending] approve — response:", { data, error });
       if (error) {
-        console.error("[pending] approve:", error);
         setActionError(`Erreur lors de l'approbation : ${error.message}`);
+        return;
+      }
+      if (!data || data.length === 0) {
+        const msg = "Aucune ligne mise à jour — vérifiez les politiques RLS de la table photos.";
+        console.warn("[pending] approve —", msg);
+        setActionError(msg);
         return;
       }
       await loadPending();
@@ -70,16 +78,30 @@ export default function PendingSection({
       return;
     setProcessingId(photo.id);
     setActionError(null);
+    console.log("[pending] reject — id:", photo.id);
     try {
       const filename = photo.src.split("/").pop();
-      if (filename) await supabase.storage.from("photos").remove([filename]);
-      const { error } = await supabase
+      if (filename) {
+        const { error: storageError } = await supabase.storage
+          .from("photos")
+          .remove([filename]);
+        if (storageError)
+          console.warn("[pending] reject storage:", storageError);
+      }
+      const { data, error } = await supabase
         .from("photos")
         .delete()
-        .eq("id", photo.id);
+        .eq("id", photo.id)
+        .select();
+      console.log("[pending] reject — response:", { data, error });
       if (error) {
-        console.error("[pending] reject:", error);
         setActionError(`Erreur lors du rejet : ${error.message}`);
+        return;
+      }
+      if (!data || data.length === 0) {
+        const msg = "Aucune ligne supprimée — vérifiez les politiques RLS de la table photos.";
+        console.warn("[pending] reject —", msg);
+        setActionError(msg);
         return;
       }
       await loadPending();
