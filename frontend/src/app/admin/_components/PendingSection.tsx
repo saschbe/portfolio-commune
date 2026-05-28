@@ -1,0 +1,164 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import Image from "next/image";
+import { supabase } from "@/lib/supabase";
+
+type Photo = {
+  id: string;
+  src: string;
+  title: string;
+  village: string;
+  year: string;
+  description: string;
+  type: string;
+  restored: boolean;
+  status: string;
+};
+
+export default function PendingSection({
+  onCountChange,
+}: {
+  onCountChange: (n: number) => void;
+}) {
+  const [photos, setPhotos] = useState<Photo[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [processingId, setProcessingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    loadPending();
+  }, []);
+
+  async function loadPending() {
+    const { data } = await supabase
+      .from("photos")
+      .select("*")
+      .eq("status", "pending")
+      .order("created_at", { ascending: false });
+    const list = data ?? [];
+    setPhotos(list);
+    onCountChange(list.length);
+    setLoading(false);
+  }
+
+  async function handleApprove(photo: Photo) {
+    setProcessingId(photo.id);
+    await supabase
+      .from("photos")
+      .update({ status: "approved" })
+      .eq("id", photo.id);
+    setPhotos((prev) => {
+      const next = prev.filter((p) => p.id !== photo.id);
+      onCountChange(next.length);
+      return next;
+    });
+    setProcessingId(null);
+  }
+
+  async function handleReject(photo: Photo) {
+    if (
+      !window.confirm(
+        `Rejeter et supprimer définitivement "${photo.title}" ?`
+      )
+    )
+      return;
+    setProcessingId(photo.id);
+    const filename = photo.src.split("/").pop();
+    if (filename) await supabase.storage.from("photos").remove([filename]);
+    await supabase.from("photos").delete().eq("id", photo.id);
+    setPhotos((prev) => {
+      const next = prev.filter((p) => p.id !== photo.id);
+      onCountChange(next.length);
+      return next;
+    });
+    setProcessingId(null);
+  }
+
+  return (
+    <div>
+      <h2 className="text-2xl font-light uppercase tracking-[0.15em] mb-2">
+        En attente d&apos;approbation
+      </h2>
+      <p className="text-white/30 text-xs uppercase tracking-[0.25em] mb-8">
+        Photos soumises en attente de validation
+      </p>
+
+      {loading ? (
+        <p className="text-white/30 uppercase tracking-[0.3em] text-xs py-8">
+          Chargement…
+        </p>
+      ) : photos.length === 0 ? (
+        <div className="py-20 flex flex-col items-center justify-center border border-white/5 rounded-2xl">
+          <p className="text-white/20 uppercase tracking-[0.3em] text-xs">
+            Aucune photo en attente
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {photos.map((photo) => (
+            <div
+              key={photo.id}
+              className="bg-white/[0.02] border border-white/10 rounded-2xl overflow-hidden hover:border-white/20 transition-all"
+            >
+              <div className="flex gap-4 p-4">
+                {/* Thumbnail */}
+                <div className="relative w-28 h-20 rounded-xl overflow-hidden shrink-0 bg-white/5">
+                  <Image
+                    src={photo.src}
+                    alt={photo.title}
+                    fill
+                    sizes="112px"
+                    className="object-cover"
+                  />
+                </div>
+
+                {/* Info */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-medium truncate">{photo.title}</p>
+                      <p className="text-xs text-white/40 uppercase tracking-[0.15em] mt-1">
+                        {photo.village} · {photo.year} · {photo.type}
+                      </p>
+                    </div>
+                    <span className="shrink-0 px-2.5 py-1 rounded-full bg-amber-300/10 border border-amber-300/30 text-amber-300 text-[10px] uppercase tracking-[0.2em]">
+                      En attente
+                    </span>
+                  </div>
+                  {photo.description && (
+                    <p className="text-sm text-white/35 mt-2 line-clamp-2">
+                      {photo.description}
+                    </p>
+                  )}
+                  {photo.restored && (
+                    <span className="inline-block mt-2 px-2 py-0.5 bg-cyan-300/10 border border-cyan-300/20 text-cyan-300 text-[10px] uppercase tracking-[0.2em] rounded-full">
+                      Restaurée
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-2 px-4 pb-4">
+                <button
+                  onClick={() => handleApprove(photo)}
+                  disabled={processingId === photo.id}
+                  className="px-5 py-2 rounded-full border border-emerald-400/40 bg-emerald-400/10 text-emerald-400 uppercase tracking-[0.2em] text-xs hover:bg-emerald-400/20 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  {processingId === photo.id ? "…" : "Approuver"}
+                </button>
+                <button
+                  onClick={() => handleReject(photo)}
+                  disabled={processingId === photo.id}
+                  className="px-5 py-2 rounded-full border border-red-400/40 bg-red-400/10 text-red-400 uppercase tracking-[0.2em] text-xs hover:bg-red-400/20 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  Rejeter
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

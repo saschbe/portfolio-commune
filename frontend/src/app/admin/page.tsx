@@ -1,234 +1,120 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import PhotosSection from "./_components/PhotosSection";
+import UsersSection from "./_components/UsersSection";
+import PendingSection from "./_components/PendingSection";
 
-const villages = [
-  "Plombières",
-  "Gemmenich",
-  "Hombourg",
-  "Moresnet",
-  "Montzen",
-  "Sippenaeken",
+type Section = "photos" | "pending" | "users";
+
+const navItems: { id: Section; label: string }[] = [
+  { id: "photos", label: "Photos" },
+  { id: "pending", label: "En attente d'approbation" },
+  { id: "users", label: "Utilisateurs" },
 ];
 
-type FormState = {
-  title: string;
-  village: string;
-  year: string;
-  description: string;
-  type: string;
-  restored: boolean;
-  file: File | null;
-};
-
-const defaultForm: FormState = {
-  title: "",
-  village: villages[0],
-  year: "",
-  description: "",
-  type: "",
-  restored: false,
-  file: null,
-};
-
 export default function AdminPage() {
-  const [form, setForm] = useState<FormState>(defaultForm);
-  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
-  const [errorMsg, setErrorMsg] = useState("");
+  const router = useRouter();
+  const [activeSection, setActiveSection] = useState<Section>("photos");
+  const [pendingCount, setPendingCount] = useState(0);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
-  function set<K extends keyof FormState>(key: K, value: FormState[K]) {
-    setForm((prev) => ({ ...prev, [key]: value }));
+  useEffect(() => {
+    supabase
+      .from("photos")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "pending")
+      .then(({ count }) => setPendingCount(count ?? 0));
+  }, []);
+
+  async function handleLogout() {
+    await supabase.auth.signOut();
+    router.push("/login");
+    router.refresh();
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!form.file) {
-      setErrorMsg("Veuillez sélectionner une image.");
-      setStatus("error");
-      return;
-    }
-
-    setStatus("loading");
-    setErrorMsg("");
-
-    const ext = form.file.name.split(".").pop();
-    const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-
-    const { error: uploadError } = await supabase.storage
-      .from("photos")
-      .upload(filename, form.file, { cacheControl: "3600", upsert: false });
-
-    if (uploadError) {
-      setErrorMsg(uploadError.message);
-      setStatus("error");
-      return;
-    }
-
-    const { data: urlData } = supabase.storage
-      .from("photos")
-      .getPublicUrl(filename);
-
-    const { error: insertError } = await supabase.from("photos").insert({
-      src: urlData.publicUrl,
-      title: form.title,
-      village: form.village,
-      year: form.year,
-      description: form.description,
-      type: form.type,
-      restored: form.restored,
-      timeline: form.year,
-    });
-
-    if (insertError) {
-      setErrorMsg(insertError.message);
-      setStatus("error");
-      return;
-    }
-
-    setForm(defaultForm);
-    setStatus("success");
+  function navigate(section: Section) {
+    setActiveSection(section);
+    setMobileOpen(false);
   }
 
-  const inputClass =
-    "w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-cyan-300/60 focus:bg-white/[0.07] transition-all duration-200";
-
-  const labelClass =
-    "block text-xs uppercase tracking-[0.25em] text-white/50 mb-2";
+  const sidebarLinks = navItems.map(({ id, label }) => (
+    <button
+      key={id}
+      onClick={() => navigate(id)}
+      className={`relative text-left w-full px-4 py-3 rounded-xl text-sm uppercase tracking-[0.2em] transition-all duration-200 ${
+        activeSection === id
+          ? "bg-cyan-300/10 text-cyan-300 border border-cyan-300/20"
+          : "text-white/50 hover:text-white/80 hover:bg-white/5"
+      }`}
+    >
+      {label}
+      {id === "pending" && pendingCount > 0 && (
+        <span className="ml-2 inline-flex items-center justify-center w-5 h-5 rounded-full bg-cyan-300 text-black text-[10px] font-bold">
+          {pendingCount > 9 ? "9+" : pendingCount}
+        </span>
+      )}
+    </button>
+  ));
 
   return (
-    <div className="min-h-screen bg-black text-white px-6 py-16">
-      <div className="max-w-2xl mx-auto">
-        <p className="text-cyan-300 uppercase tracking-[0.4em] text-sm mb-4">
-          Administration
-        </p>
-        <h1 className="text-3xl md:text-4xl font-light uppercase tracking-[0.15em] mb-12">
-          Ajouter une photo
-        </h1>
+    <div className="min-h-screen bg-black text-white flex">
+      {/* Sidebar — desktop */}
+      <aside className="hidden md:flex w-64 shrink-0 flex-col border-r border-white/10 sticky top-0 h-screen overflow-y-auto py-8 px-4">
+        <div className="mb-10">
+          <p className="text-cyan-300 uppercase tracking-[0.4em] text-xs mb-1">
+            Administration
+          </p>
+          <p className="text-white/30 uppercase tracking-[0.15em] text-xs">
+            Plombières en Images
+          </p>
+        </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Titre */}
-          <div>
-            <label className={labelClass}>Titre</label>
-            <input
-              type="text"
-              required
-              value={form.title}
-              onChange={(e) => set("title", e.target.value)}
-              placeholder="Ex : Mine du Bleyberg"
-              className={inputClass}
-            />
-          </div>
+        <nav className="flex flex-col gap-1 flex-1">{sidebarLinks}</nav>
 
-          {/* Village */}
-          <div>
-            <label className={labelClass}>Village</label>
-            <select
-              value={form.village}
-              onChange={(e) => set("village", e.target.value)}
-              className={inputClass}
-            >
-              {villages.map((v) => (
-                <option key={v} value={v} className="bg-zinc-900">
-                  {v}
-                </option>
-              ))}
-            </select>
-          </div>
+        <button
+          onClick={handleLogout}
+          className="text-left px-4 py-3 text-xs uppercase tracking-[0.2em] text-white/25 hover:text-white/50 transition-colors"
+        >
+          Déconnexion
+        </button>
+      </aside>
 
-          {/* Année */}
-          <div>
-            <label className={labelClass}>Année</label>
-            <input
-              type="text"
-              required
-              value={form.year}
-              onChange={(e) => set("year", e.target.value)}
-              placeholder="Ex : 1902"
-              className={inputClass}
-            />
-          </div>
+      {/* Header — mobile */}
+      <header className="md:hidden fixed top-0 inset-x-0 z-40 bg-black/90 backdrop-blur-md border-b border-white/10 flex items-center justify-between px-5 py-3">
+        <p className="text-cyan-300 uppercase tracking-[0.35em] text-xs">Admin</p>
+        <button
+          onClick={() => setMobileOpen(!mobileOpen)}
+          className="text-white/50 hover:text-white text-xl leading-none"
+          aria-label="Menu"
+        >
+          {mobileOpen ? "✕" : "☰"}
+        </button>
+      </header>
 
-          {/* Description */}
-          <div>
-            <label className={labelClass}>Description</label>
-            <textarea
-              required
-              rows={4}
-              value={form.description}
-              onChange={(e) => set("description", e.target.value)}
-              placeholder="Description de la photo…"
-              className={`${inputClass} resize-none`}
-            />
-          </div>
-
-          {/* Type */}
-          <div>
-            <label className={labelClass}>Type</label>
-            <input
-              type="text"
-              required
-              value={form.type}
-              onChange={(e) => set("type", e.target.value)}
-              placeholder="Ex : Photo ancienne, Archive historique…"
-              className={inputClass}
-            />
-          </div>
-
-          {/* Restaurée */}
-          <div className="flex items-center gap-4">
-            <input
-              id="restored"
-              type="checkbox"
-              checked={form.restored}
-              onChange={(e) => set("restored", e.target.checked)}
-              className="w-5 h-5 accent-cyan-300 cursor-pointer"
-            />
-            <label
-              htmlFor="restored"
-              className="text-sm uppercase tracking-[0.2em] text-white/70 cursor-pointer"
-            >
-              Photo restaurée
-            </label>
-          </div>
-
-          {/* Image */}
-          <div>
-            <label className={labelClass}>Image</label>
-            <input
-              type="file"
-              required
-              accept="image/*"
-              onChange={(e) => set("file", e.target.files?.[0] ?? null)}
-              className="w-full text-sm text-white/60 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border file:border-white/20 file:bg-white/5 file:text-white/70 file:text-xs file:uppercase file:tracking-[0.2em] file:cursor-pointer hover:file:bg-white/10 file:transition-all"
-            />
-            {form.file && (
-              <p className="mt-2 text-xs text-white/40">{form.file.name}</p>
-            )}
-          </div>
-
-          {/* Feedback */}
-          {status === "error" && (
-            <p className="text-red-400 text-sm uppercase tracking-[0.2em]">
-              Erreur : {errorMsg}
-            </p>
-          )}
-          {status === "success" && (
-            <p className="text-cyan-300 text-sm uppercase tracking-[0.2em]">
-              Photo ajoutée avec succès.
-            </p>
-          )}
-
-          {/* Submit */}
+      {/* Overlay — mobile */}
+      {mobileOpen && (
+        <div className="md:hidden fixed inset-0 z-30 bg-black pt-14 px-5 flex flex-col">
+          <nav className="flex flex-col gap-1 pt-6 flex-1">{sidebarLinks}</nav>
           <button
-            type="submit"
-            disabled={status === "loading"}
-            className="w-full py-4 rounded-full border border-cyan-300/40 bg-cyan-300/10 text-cyan-300 uppercase tracking-[0.3em] text-sm hover:bg-cyan-300/20 hover:border-cyan-300/70 transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed"
+            onClick={handleLogout}
+            className="py-5 text-xs uppercase tracking-[0.2em] text-white/25 hover:text-white/50 transition-colors"
           >
-            {status === "loading" ? "Envoi en cours…" : "Ajouter la photo"}
+            Déconnexion
           </button>
-        </form>
-      </div>
+        </div>
+      )}
+
+      {/* Main content */}
+      <main className="flex-1 overflow-y-auto px-5 py-8 md:px-10 pt-20 md:pt-8">
+        {activeSection === "photos" && <PhotosSection />}
+        {activeSection === "users" && <UsersSection />}
+        {activeSection === "pending" && (
+          <PendingSection onCountChange={setPendingCount} />
+        )}
+      </main>
     </div>
   );
 }
