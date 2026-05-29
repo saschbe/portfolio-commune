@@ -135,10 +135,10 @@ export default function Header() {
               <a href="#histoire" className="hover:text-cyan-300 transition-all duration-300">
                 Histoire
               </a>
-              <a href="#" className="hover:text-cyan-300 transition-all duration-300">
+              <a href="/carte" className="hover:text-cyan-300 transition-all duration-300">
                 Carte
               </a>
-              <a href="#" className="hover:text-cyan-300 transition-all duration-300">
+              <a href="/collections" className="hover:text-cyan-300 transition-all duration-300">
                 Collections
               </a>
 
@@ -245,10 +245,10 @@ export default function Header() {
               <a href="#histoire" onClick={() => setMobileMenuOpen(false)} className="hover:text-cyan-300 transition-all duration-300">
                 Histoire
               </a>
-              <a href="#" onClick={() => setMobileMenuOpen(false)} className="hover:text-cyan-300 transition-all duration-300">
+              <a href="/carte" onClick={() => setMobileMenuOpen(false)} className="hover:text-cyan-300 transition-all duration-300">
                 Carte
               </a>
-              <a href="#" onClick={() => setMobileMenuOpen(false)} className="hover:text-cyan-300 transition-all duration-300">
+              <a href="/collections" onClick={() => setMobileMenuOpen(false)} className="hover:text-cyan-300 transition-all duration-300">
                 Collections
               </a>
 
