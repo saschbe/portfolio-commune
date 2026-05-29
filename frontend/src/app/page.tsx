@@ -8,7 +8,7 @@ import Gallery from "@/components/Gallery";
 import { useState } from "react";
 
 export default function Home() {
-  const [selectedTimeline, setSelectedTimeline] = useState<string | null>(null);
+  const [, setSelectedTimeline] = useState<string | null>(null);
   return (
     <>
       <Header />
@@ -144,10 +144,7 @@ export default function Home() {
         </div>
       </section>
 
-      <Gallery
-        selectedTimeline={selectedTimeline}
-        setSelectedTimeline={setSelectedTimeline}
-      />
+      <Gallery />
       <main className="min-h-screen bg-black text-white overflow-x-hidden">
         <TimelineSection setSelectedTimeline={setSelectedTimeline} />
       </main>

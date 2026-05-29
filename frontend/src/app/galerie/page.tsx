@@ -1,0 +1,683 @@
+"use client";
+
+import { useState, useEffect, useRef, useCallback } from "react";
+import Image from "next/image";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
+import type { User } from "@supabase/supabase-js";
+
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+type Photo = {
+  id: string;
+  src: string;
+  title: string;
+  village: string;
+  year: string;
+  type: string;
+  restored: boolean;
+  description: string;
+  status?: string | null;
+};
+
+type Category = {
+  id: string;
+  nom: string;
+  colonne: string;
+};
+
+type ActiveFilter = {
+  colonne: string;
+  nom: string;
+  value: string;
+};
+
+const ASPECTS = [
+  "aspect-[4/3]",
+  "aspect-[3/4]",
+  "aspect-[16/9]",
+  "aspect-square",
+  "aspect-[3/5]",
+];
+
+// ── Icônes ────────────────────────────────────────────────────────────────────
+
+function UserIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"
+      strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
+    </svg>
+  );
+}
+
+function FilterIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+      strokeLinejoin="round" aria-hidden="true">
+      <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+    </svg>
+  );
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
+
+export default function GaleriePage() {
+  const router = useRouter();
+
+  // Auth
+  const [user, setUser]               = useState<User | null>(null);
+  const [isPrivileged, setIsPrivileged] = useState(false);
+  const [userDropdown, setUserDropdown] = useState(false);
+  const userDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Données
+  const [photos, setPhotos]         = useState<Photo[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading]       = useState(true);
+
+  // Panneau filtres
+  const [panelOpen, setPanelOpen]           = useState(false);
+  const [activeFilters, setActiveFilters]   = useState<ActiveFilter[]>([]);
+  const [searchValues, setSearchValues]     = useState<Record<string, string>>({});
+  const [suggestions, setSuggestions]       = useState<Record<string, string[]>>({});
+  const [focusedCat, setFocusedCat]         = useState<string | null>(null);
+  const debounceRefs    = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const abortRefs       = useRef<Record<string, AbortController>>({});
+
+  // Visionneuse
+  const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
+  const [showInfo, setShowInfo]           = useState(true);
+
+  // ── Auth ────────────────────────────────────────────────────────────────────
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setUser(data.user);
+      if (data.user) fetchRole(data.user.id);
+    });
+    const { data: listener } = supabase.auth.onAuthStateChange((_e, session) => {
+      setUser(session?.user ?? null);
+      if (session?.user) fetchRole(session.user.id);
+      else setIsPrivileged(false);
+    });
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
+  async function fetchRole(userId: string) {
+    const { data } = await supabase.from("profiles").select("role").eq("id", userId).single();
+    setIsPrivileged(["admin", "moderator"].includes(data?.role ?? ""));
+  }
+
+  async function handleLogout() {
+    await supabase.auth.signOut();
+    setUserDropdown(false);
+    router.refresh();
+  }
+
+  // Fermer user dropdown si clic extérieur
+  useEffect(() => {
+    function onDown(e: MouseEvent) {
+      if (userDropdownRef.current && !userDropdownRef.current.contains(e.target as Node))
+        setUserDropdown(false);
+    }
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, []);
+
+  // ── Données ─────────────────────────────────────────────────────────────────
+
+  useEffect(() => {
+    Promise.all([
+      supabase
+        .from("photos")
+        .select("*")
+        .or("status.eq.approved,status.is.null")
+        .order("created_at", { ascending: false }),
+      supabase.from("filtres_categories").select("*").order("nom"),
+    ]).then(([{ data: photoData }, { data: catData }]) => {
+      setPhotos(photoData ?? []);
+      setCategories(catData ?? []);
+      setLoading(false);
+    });
+  }, []);
+
+  // Fermer visionneuse avec Échap
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        if (selectedPhoto) { setSelectedPhoto(null); return; }
+        if (panelOpen) setPanelOpen(false);
+      }
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [selectedPhoto, panelOpen]);
+
+  // ── Autocomplétion ───────────────────────────────────────────────────────────
+
+  const fetchSuggestions = useCallback(async (catId: string, colonne: string, query: string) => {
+    if (!query.trim()) { setSuggestions(prev => ({ ...prev, [catId]: [] })); return; }
+
+    // Boolean column: suggestions statiques, pas de requête réseau
+    if (colonne === "restored") {
+      const opts = ["Oui", "Non"].filter(s => s.toLowerCase().includes(query.toLowerCase()));
+      setSuggestions(prev => ({ ...prev, [catId]: opts }));
+      return;
+    }
+
+    // Annuler la requête précédente pour ce champ si elle est encore en vol
+    const controllers = abortRefs.current;
+    controllers[catId]?.abort();
+    const controller = new AbortController();
+    controllers[catId] = controller;
+
+    const { data, error } = await supabase
+      .from("photos")
+      .select(colonne)
+      .or("status.eq.approved,status.is.null")
+      .ilike(colonne, `%${query}%`)
+      .limit(30)
+      .abortSignal(controller.signal);
+
+    // Ignorer silencieusement les requêtes annulées
+    if (controller.signal.aborted) return;
+    if (error) { setSuggestions(prev => ({ ...prev, [catId]: [] })); return; }
+
+    const unique = [
+      ...new Set(
+        (data ?? [])
+          .map((r) => String((r as unknown as Record<string, unknown>)[colonne] ?? ""))
+          .filter(Boolean)
+      ),
+    ].slice(0, 7);
+    setSuggestions(prev => ({ ...prev, [catId]: unique }));
+  }, []);
+
+  function handleSearchChange(catId: string, colonne: string, value: string) {
+    setSearchValues(prev => ({ ...prev, [catId]: value }));
+    if (debounceRefs.current[catId]) clearTimeout(debounceRefs.current[catId]);
+    if (!value.trim()) {
+      setSuggestions(prev => ({ ...prev, [catId]: [] }));
+      return;
+    }
+    debounceRefs.current[catId] = setTimeout(() => fetchSuggestions(catId, colonne, value), 300);
+  }
+
+  function addFilter(cat: Category, value: string) {
+    if (!value.trim()) return;
+    if (activeFilters.some(f => f.colonne === cat.colonne && f.value.toLowerCase() === value.toLowerCase())) return;
+    setActiveFilters(prev => [...prev, { colonne: cat.colonne, nom: cat.nom, value }]);
+    setSearchValues(prev => ({ ...prev, [cat.id]: "" }));
+    setSuggestions(prev => ({ ...prev, [cat.id]: [] }));
+    setFocusedCat(null);
+  }
+
+  function removeFilter(i: number) {
+    setActiveFilters(prev => prev.filter((_, idx) => idx !== i));
+  }
+
+  // ── Filtrage côté client ─────────────────────────────────────────────────────
+
+  const filteredPhotos = activeFilters.length === 0
+    ? photos
+    : photos.filter(photo =>
+        activeFilters.every(f => {
+          const val = (photo as unknown as Record<string, unknown>)[f.colonne];
+          if (val === null || val === undefined) return false;
+          if (typeof val === "boolean") {
+            const v = f.value.toLowerCase();
+            return val ? (v === "oui" || v === "true") : (v === "non" || v === "false");
+          }
+          return String(val).toLowerCase() === f.value.toLowerCase();
+        })
+      );
+
+  const displayName =
+    (user?.user_metadata?.name as string | undefined) ??
+    user?.email?.split("@")[0] ?? "";
+
+  const spaceHref  = isPrivileged ? "/admin" : "/dashboard";
+  const spaceLabel = isPrivileged ? "Administration" : "Mon espace";
+
+  // ── Render ──────────────────────────────────────────────────────────────────
+
+  return (
+    <div className="min-h-screen bg-black text-white">
+
+      {/* ── Header ───────────────────────────────────────────────────────── */}
+      <header className="fixed top-0 left-0 w-full z-50 backdrop-blur-xl bg-black/50 border-b border-white/10">
+        <div className="max-w-7xl mx-auto px-6 py-5 flex items-center justify-between gap-10">
+
+          {/* Logo */}
+          <Link href="/" className="shrink-0">
+            <Image
+              src="/images/logo-white.png"
+              alt="Plombières en Images"
+              width={0} height={0}
+              loading="eager"
+              sizes="100vw"
+              className="w-[130px] md:w-[190px] lg:w-[280px] xl:w-[320px] h-auto drop-shadow-[0_0_12px_rgba(255,255,255,0.35)]"
+            />
+          </Link>
+
+          {/* Nav desktop */}
+          <nav className="hidden md:flex items-center gap-10 ml-10 text-sm uppercase tracking-[0.2em] text-white">
+            <Link href="/" className="hover:text-cyan-300 transition-all duration-300">Accueil</Link>
+
+            {/* Compteur de photos */}
+            {!loading && (
+              <span className="tabular-nums tracking-[0.2em] text-sm uppercase">
+                {activeFilters.length > 0
+                  ? <span><span className="text-cyan-300 font-medium">{filteredPhotos.length}</span><span className="text-white/30"> / {photos.length} photos</span></span>
+                  : <span className="text-white/50">{photos.length} photos</span>
+                }
+              </span>
+            )}
+
+            {/* Bouton Filtres dans la nav */}
+            <button
+              onClick={() => setPanelOpen(true)}
+              className={`flex items-center gap-2.5 px-6 py-2.5 rounded-full border text-sm uppercase tracking-[0.25em] transition-all duration-300 ${
+                activeFilters.length > 0
+                  ? "bg-cyan-300/10 border-cyan-300/40 text-cyan-300 hover:bg-cyan-300/20 hover:border-cyan-300/70"
+                  : "border-white/20 bg-white/5 text-white hover:bg-white/10 hover:border-white/40"
+              }`}
+            >
+              <FilterIcon />
+              Filtres
+              {activeFilters.length > 0 && (
+                <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-cyan-300 text-black text-[10px] font-bold">
+                  {activeFilters.length}
+                </span>
+              )}
+            </button>
+
+            {/* Icône utilisateur */}
+            {user ? (
+              <div className="relative" ref={userDropdownRef}>
+                <button
+                  onClick={() => setUserDropdown(!userDropdown)}
+                  aria-label="Mon compte"
+                  className={`transition-colors duration-300 ${userDropdown ? "text-cyan-300" : "text-white/70 hover:text-cyan-300"}`}
+                >
+                  <UserIcon />
+                </button>
+                {userDropdown && (
+                  <div className="absolute right-0 top-full mt-3 w-48 bg-zinc-950/95 backdrop-blur-md border border-white/10 rounded-2xl overflow-hidden shadow-[0_8px_40px_rgba(0,0,0,0.6)]">
+                    <div className="px-4 py-3 border-b border-white/5">
+                      <p className="text-xs text-white/60 truncate">{displayName}</p>
+                      <p className="text-[10px] text-white/30 truncate mt-0.5">{user.email}</p>
+                    </div>
+                    <Link href={spaceHref} onClick={() => setUserDropdown(false)}
+                      className="flex items-center px-4 py-3 text-xs uppercase tracking-[0.2em] text-white/70 hover:text-cyan-300 hover:bg-white/5 transition-all">
+                      {spaceLabel}
+                    </Link>
+                    <button onClick={handleLogout}
+                      className="w-full text-left px-4 py-3 text-xs uppercase tracking-[0.2em] text-white/40 hover:text-red-400 hover:bg-white/5 transition-all border-t border-white/5">
+                      Se déconnecter
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <Link href="/login" aria-label="Se connecter"
+                className="text-white/70 hover:text-cyan-300 transition-all duration-300">
+                <UserIcon />
+              </Link>
+            )}
+          </nav>
+
+          {/* Mobile : filtres + user */}
+          <div className="md:hidden flex items-center gap-4">
+            <button onClick={() => setPanelOpen(true)}
+              className={`transition-colors duration-300 ${activeFilters.length > 0 ? "text-cyan-300" : "text-white/60 hover:text-cyan-300"}`}>
+              <FilterIcon />
+            </button>
+            {user ? (
+              <div className="relative" ref={userDropdownRef}>
+                <button onClick={() => setUserDropdown(!userDropdown)} aria-label="Mon compte"
+                  className={`transition-colors duration-300 ${userDropdown ? "text-cyan-300" : "text-white/60 hover:text-cyan-300"}`}>
+                  <UserIcon />
+                </button>
+                {userDropdown && (
+                  <div className="absolute right-0 top-full mt-3 w-48 bg-zinc-950/95 backdrop-blur-md border border-white/10 rounded-2xl overflow-hidden shadow-[0_8px_40px_rgba(0,0,0,0.6)]">
+                    <Link href={spaceHref} onClick={() => setUserDropdown(false)}
+                      className="flex items-center px-4 py-3 text-xs uppercase tracking-[0.2em] text-white/70 hover:text-cyan-300 hover:bg-white/5 transition-all">
+                      {spaceLabel}
+                    </Link>
+                    <button onClick={handleLogout}
+                      className="w-full text-left px-4 py-3 text-xs uppercase tracking-[0.2em] text-white/40 hover:text-red-400 hover:bg-white/5 transition-all border-t border-white/5">
+                      Se déconnecter
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <Link href="/login" aria-label="Se connecter"
+                className="text-white/60 hover:text-cyan-300 transition-all duration-300">
+                <UserIcon />
+              </Link>
+            )}
+          </div>
+        </div>
+      </header>
+
+      {/* ── Contenu ──────────────────────────────────────────────────────── */}
+      <div className="max-w-7xl mx-auto px-6 py-12">
+
+        {/* Titre */}
+        <div className="mb-10">
+          <h1 className="text-3xl md:text-5xl font-light uppercase tracking-[0.15em] leading-[1.2]">
+            Galerie
+          </h1>
+        </div>
+
+        {/* Barre filtres actifs */}
+        {activeFilters.length > 0 && (
+          <div className="flex flex-col gap-3 mb-10">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => setActiveFilters([])}
+                className="text-[10px] uppercase tracking-[0.25em] text-white/30 hover:text-white/60 transition-colors"
+              >
+                Tout effacer
+              </button>
+            </div>
+
+            {/* Badges filtres actifs */}
+            <div className="flex flex-wrap gap-2">
+              {activeFilters.map((f, i) => (
+                <span key={i}
+                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-cyan-300/10 border border-cyan-300/30 text-cyan-300 text-[10px] uppercase tracking-[0.15em]"
+                >
+                  <span className="text-cyan-300/50">{f.nom} :</span>
+                  {f.value}
+                  <button onClick={() => removeFilter(i)}
+                    aria-label={`Supprimer ${f.nom}`}
+                    className="text-cyan-300/50 hover:text-cyan-300 leading-none transition-colors">
+                    ✕
+                  </button>
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Galerie masonry */}
+        {loading ? (
+          <p className="text-center text-white/30 uppercase tracking-[0.35em] text-xs py-24">
+            Chargement…
+          </p>
+        ) : filteredPhotos.length === 0 ? (
+          <div className="text-center py-28 border border-white/5 rounded-3xl">
+            <p className="text-white/20 uppercase tracking-[0.35em] text-xs mb-4">Aucune photo</p>
+            {activeFilters.length > 0 && (
+              <button onClick={() => setActiveFilters([])}
+                className="text-cyan-300/50 hover:text-cyan-300 text-[10px] uppercase tracking-[0.25em] transition-colors">
+                Effacer les filtres →
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="columns-2 md:columns-3 xl:columns-4 gap-x-3">
+            {filteredPhotos.map((photo, index) => (
+              <div key={photo.id}
+                onClick={() => { setSelectedPhoto(photo); setShowInfo(true); }}
+                className="break-inside-avoid mb-3 group relative overflow-hidden rounded-3xl border border-white/10 bg-white/3 backdrop-blur-md cursor-pointer transition-all duration-700 hover:-translate-y-1 hover:border-cyan-300/30 hover:bg-white/5 hover:shadow-[0_20px_80px_rgba(34,211,238,0.10)]"
+              >
+                <div className={`relative ${ASPECTS[index % ASPECTS.length]}`}>
+                  <Image
+                    src={photo.src} alt={photo.title} fill
+                    sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
+                    loading={index === 0 ? "eager" : "lazy"}
+                    className="object-cover transition-all duration-2000 ease-out group-hover:scale-105 group-hover:brightness-110"
+                  />
+                  <div className="absolute inset-0 bg-linear-to-t from-black/90 via-black/20 to-transparent opacity-70 group-hover:opacity-100 transition-all duration-700" />
+                </div>
+                <div className="absolute bottom-0 left-0 w-full p-5">
+                  <h3 className="text-base font-light uppercase tracking-[0.08em] leading-tight">
+                    {photo.title}
+                  </h3>
+                  <p className="text-cyan-300 text-[10px] uppercase tracking-[0.2em] mt-1.5 translate-y-2 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-500">
+                    {photo.village} · {photo.year}
+                  </p>
+                </div>
+                {photo.restored && (
+                  <div className="absolute top-3 right-3 px-2 py-0.5 bg-cyan-300/20 border border-cyan-300/30 text-cyan-300 text-[9px] uppercase tracking-[0.2em] rounded-full backdrop-blur-sm">
+                    Restaurée
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ── Panneau filtres ───────────────────────────────────────────────── */}
+
+      {/* Backdrop */}
+      {panelOpen && (
+        <div
+          className="fixed top-16 inset-x-0 bottom-0 z-30 bg-black/60 backdrop-blur-sm"
+          onClick={() => setPanelOpen(false)}
+        />
+      )}
+
+      {/* Panneau latéral */}
+      <div className={`fixed top-16 left-0 h-[calc(100vh-4rem)] overflow-hidden z-40 w-80 bg-zinc-950 border-r border-white/10 flex flex-col shadow-[4px_0_40px_rgba(0,0,0,0.6)] transition-transform duration-300 ease-out ${panelOpen ? "translate-x-0" : "-translate-x-full"}`}>
+
+        {/* En-tête panneau */}
+        <div className="flex items-center justify-between px-6 py-5 border-b border-white/10 shrink-0">
+          <div>
+            <p className="text-cyan-300 uppercase tracking-[0.35em] text-xs mb-0.5">Filtres</p>
+            {activeFilters.length > 0 && (
+              <p className="text-white/30 text-[10px] uppercase tracking-[0.2em]">
+                {activeFilters.length} actif{activeFilters.length > 1 ? "s" : ""}
+              </p>
+            )}
+          </div>
+          <button
+            onClick={() => setPanelOpen(false)}
+            className="text-white/30 hover:text-white text-2xl leading-none transition-colors"
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* Catégories */}
+        <div className="flex-1 overflow-y-auto px-6 py-6 space-y-8">
+          {categories.length === 0 ? (
+            <p className="text-white/25 text-[10px] uppercase tracking-[0.25em]">
+              Aucune catégorie disponible
+            </p>
+          ) : (
+            categories.map((cat) => {
+              const currentSuggestions = suggestions[cat.id] ?? [];
+              const currentValue       = searchValues[cat.id] ?? "";
+              const isFocused          = focusedCat === cat.id;
+              const showSuggestions    = currentValue.trim().length > 0 && currentSuggestions.length > 0;
+              const showFreeText       = isFocused && currentValue.trim().length > 0 && currentSuggestions.length === 0;
+
+              return (
+                <div key={cat.id}>
+                  <label className="block text-[10px] uppercase tracking-[0.3em] text-white mb-2">
+                    {cat.nom}
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={currentValue}
+                      onChange={(e) => handleSearchChange(cat.id, cat.colonne, e.target.value)}
+                      onFocus={() => setFocusedCat(cat.id)}
+                      onBlur={() => setTimeout(() => {
+                        setFocusedCat(null);
+                        setSuggestions(prev => ({ ...prev, [cat.id]: [] }));
+                      }, 150)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && currentValue.trim())
+                          addFilter(cat, currentValue.trim());
+                        if (e.key === "Escape") {
+                          setSearchValues(prev => ({ ...prev, [cat.id]: "" }));
+                          setSuggestions(prev => ({ ...prev, [cat.id]: [] }));
+                        }
+                      }}
+                      placeholder={`Rechercher…`}
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/25 focus:outline-none focus:border-cyan-300/50 transition-all"
+                    />
+
+                    {/* Suggestions */}
+                    {(showSuggestions || showFreeText) && (
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-zinc-900 border border-white/10 rounded-xl overflow-hidden z-10 shadow-[0_4px_24px_rgba(0,0,0,0.5)]">
+                        {currentSuggestions.map((s) => (
+                          <button
+                            key={s}
+                            onMouseDown={() => addFilter(cat, s)}
+                            className="w-full text-left px-4 py-2.5 text-sm text-white/70 hover:text-cyan-300 hover:bg-white/5 transition-all"
+                          >
+                            {s}
+                          </button>
+                        ))}
+                        {showFreeText && (
+                          <button
+                            onMouseDown={() => addFilter(cat, currentValue.trim())}
+                            className="w-full text-left px-4 py-2.5 text-sm text-white/50 hover:text-cyan-300 hover:bg-white/5 transition-all border-t border-white/5"
+                          >
+                            Filtrer par « {currentValue.trim()} »
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Filtres actifs pour cette catégorie */}
+                  {activeFilters.filter(f => f.colonne === cat.colonne).length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {activeFilters
+                        .map((f, i) => f.colonne === cat.colonne ? { f, i } : null)
+                        .filter(Boolean)
+                        .map((item) => (
+                          <span key={item!.i}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-cyan-300/10 border border-cyan-300/30 text-cyan-300 text-[9px] uppercase tracking-[0.15em]"
+                          >
+                            {item!.f.value}
+                            <button
+                              onClick={() => removeFilter(item!.i)}
+                              className="text-cyan-300/50 hover:text-cyan-300 leading-none"
+                            >
+                              ✕
+                            </button>
+                          </span>
+                        ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Pied du panneau */}
+        {activeFilters.length > 0 && (
+          <div className="shrink-0 px-6 py-4 border-t border-white/10">
+            <button
+              onClick={() => setActiveFilters([])}
+              className="w-full py-2.5 rounded-full border border-white/10 text-white/40 text-xs uppercase tracking-[0.25em] hover:border-white/20 hover:text-white/60 transition-all"
+            >
+              Effacer tous les filtres
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* ── Visionneuse plein écran ───────────────────────────────────────── */}
+      {selectedPhoto && (
+        <div className="fixed inset-0 z-100 bg-black/95 backdrop-blur-xl">
+          <div className="absolute inset-0" onClick={() => setSelectedPhoto(null)} />
+
+          <div className="fixed inset-0 flex items-center justify-center bg-linear-to-b from-black via-zinc-950 to-black">
+            <button
+              onClick={(e) => { e.stopPropagation(); setSelectedPhoto(null); }}
+              className="absolute top-6 right-6 z-110 text-white/60 text-4xl hover:text-cyan-300 transition-all duration-300"
+            >
+              ✕
+            </button>
+
+            {/* Navigation */}
+            {filteredPhotos.length > 1 && (
+              <>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const idx = filteredPhotos.findIndex(p => p.id === selectedPhoto.id);
+                    setSelectedPhoto(filteredPhotos[(idx - 1 + filteredPhotos.length) % filteredPhotos.length]);
+                  }}
+                  className="absolute left-4 top-1/2 -translate-y-1/2 z-110 text-white/40 hover:text-white text-3xl px-2 transition-all"
+                >‹</button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const idx = filteredPhotos.findIndex(p => p.id === selectedPhoto.id);
+                    setSelectedPhoto(filteredPhotos[(idx + 1) % filteredPhotos.length]);
+                  }}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 z-110 text-white/40 hover:text-white text-3xl px-2 transition-all"
+                >›</button>
+              </>
+            )}
+
+            <div
+              className="relative w-screen h-dvh md:max-w-6xl md:h-[85vh]"
+              onClick={(e) => { e.stopPropagation(); setShowInfo(!showInfo); }}
+            >
+              <Image src={selectedPhoto.src} alt={selectedPhoto.title} fill
+                sizes="100vw" className="object-contain select-none animate-[fadeIn_0.6s_ease]" />
+            </div>
+
+            <div className="absolute top-6 left-6 z-110 text-white/40 text-[10px] uppercase tracking-[0.35em]">
+              {String(filteredPhotos.findIndex(p => p.id === selectedPhoto.id) + 1).padStart(2, "0")}
+              &nbsp;/&nbsp;
+              {String(filteredPhotos.length).padStart(2, "0")}
+            </div>
+
+            {showInfo && (
+              <div className="absolute bottom-6 left-6 md:bottom-10 md:left-10 max-w-xl bg-black/30 backdrop-blur-2xl border border-white/10 p-6 md:p-8 rounded-3xl shadow-[0_0_60px_rgba(0,0,0,0.5)] transition-all duration-700">
+                <h3 className="text-2xl md:text-4xl font-light uppercase tracking-[0.14em] text-white leading-tight">
+                  {selectedPhoto.title}
+                </h3>
+                <div className="mt-2 text-cyan-300 uppercase tracking-[0.2em] text-xs">
+                  {selectedPhoto.village}
+                </div>
+                {selectedPhoto.description && (
+                  <p className="mt-3 text-white/50 leading-relaxed text-sm max-w-prose">
+                    {selectedPhoto.description}
+                  </p>
+                )}
+                <div className="mt-5 flex flex-wrap gap-2">
+                  {selectedPhoto.year && (
+                    <span className="px-3 py-1.5 bg-white/10 border border-white/10 text-[10px] uppercase tracking-[0.2em]">
+                      {selectedPhoto.year}
+                    </span>
+                  )}
+                  {selectedPhoto.type && (
+                    <span className="px-3 py-1.5 bg-white/10 border border-white/10 text-[10px] uppercase tracking-[0.2em]">
+                      {selectedPhoto.type}
+                    </span>
+                  )}
+                  {selectedPhoto.restored && (
+                    <span className="px-3 py-1.5 bg-cyan-300 text-black text-[10px] uppercase tracking-[0.2em]">
+                      Restaurée
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

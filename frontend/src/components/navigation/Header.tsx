@@ -129,8 +129,8 @@ export default function Header() {
               <a href="#accueil" className="hover:text-cyan-300 transition-all duration-300">
                 Accueil
               </a>
-              <a href="#archives" className="hover:text-cyan-300 transition-all duration-300">
-                Archives
+              <a href="/galerie" className="hover:text-cyan-300 transition-all duration-300">
+                Galerie
               </a>
               <a href="#histoire" className="hover:text-cyan-300 transition-all duration-300">
                 Histoire
@@ -239,8 +239,8 @@ export default function Header() {
               <a href="#accueil" onClick={() => setMobileMenuOpen(false)} className="hover:text-cyan-300 transition-all duration-300">
                 Accueil
               </a>
-              <a href="#archives" onClick={() => setMobileMenuOpen(false)} className="hover:text-cyan-300 transition-all duration-300">
-                Archives
+              <a href="/galerie" onClick={() => setMobileMenuOpen(false)} className="hover:text-cyan-300 transition-all duration-300">
+                Galerie
               </a>
               <a href="#histoire" onClick={() => setMobileMenuOpen(false)} className="hover:text-cyan-300 transition-all duration-300">
                 Histoire
