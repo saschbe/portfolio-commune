@@ -220,19 +220,42 @@ export default function GaleriePage() {
     if (!error) {
       supabase.from("photos").update({ status: "signaled" }).eq("id", reportingPhoto.id)
         .then(({ error: e }) => console.log("[signalement] photo signaled →", e ?? "ok"));
-      fetch("https://fjglbztexnntivdrjhbv.supabase.co/functions/v1/notify-new-photo", {
+      const FUNCTIONS_URL = "https://fjglbztexnntivdrjhbv.supabase.co/functions/v1";
+      const ANON_KEY = "sb_publishable_xMlW5BYoriE-iDe8JsLq1Q_lU3Pcjwj";
+      const ANON_JWT = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZqZ2xienRleG5udGl2ZHJqaGJ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgyNzE1NzksImV4cCI6MjA2Mzg0NzU3OX0.vIyVPvgSEDRtDmOEsGKMELMxJ6F9_h5DGT9KFTnMGGU";
+
+      const authHeaders = {
+        "Content-Type": "application/json",
+        "apikey": ANON_KEY,
+        "Authorization": `Bearer ${ANON_KEY}`,
+      };
+      const reporterHeaders = {
+        "Content-Type": "application/json",
+        "apikey": ANON_JWT,
+        "Authorization": `Bearer ${ANON_JWT}`,
+      };
+
+      fetch(`${FUNCTIONS_URL}/notify-new-photo`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "apikey": "sb_publishable_xMlW5BYoriE-iDe8JsLq1Q_lU3Pcjwj",
-        },
+        headers: authHeaders,
         body: JSON.stringify({ photo: { title: "Signalement reçu", village: reportRaison } }),
       })
-        .then(async (res) => {
-          const body = await res.text();
-          console.log("[signalement] notify →", res.status, body);
+        .then(async (res) => console.log("[signalement] notify-admin →", res.status, await res.text()))
+        .catch((err) => console.error("[signalement] notify-admin error →", err));
+
+      if (reportEmail.trim()) {
+        fetch(`${FUNCTIONS_URL}/notify-reporter`, {
+          method: "POST",
+          headers: reporterHeaders,
+          body: JSON.stringify({
+            email: reportEmail.trim(),
+            photoTitle: reportingPhoto.title,
+            raison: reportRaison,
+          }),
         })
-        .catch((err) => console.error("[signalement] notify error →", err));
+          .then(async (res) => console.log("[signalement] notify-reporter →", res.status, await res.text()))
+          .catch((err) => console.error("[signalement] notify-reporter error →", err));
+      }
     }
     setReportLoading(false);
     setReportSuccess(true);
