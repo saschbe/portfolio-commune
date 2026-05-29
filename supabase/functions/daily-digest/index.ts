@@ -1,7 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import nodemailer from "npm:nodemailer";
 
-// ── Types ────────────────────────────────────────────────────────────────────
+// -- Types --------------------------------------------------------------------
 
 interface Activite {
   id: string;
@@ -27,7 +27,7 @@ interface ProfileRow {
   created_at: string;
 }
 
-// ── CORS ─────────────────────────────────────────────────────────────────────
+// -- CORS ---------------------------------------------------------------------
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -35,7 +35,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-// ── Handler ───────────────────────────────────────────────────────────────────
+// -- Handler -------------------------------------------------------------------
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -211,7 +211,7 @@ Deno.serve(async (req: Request) => {
   }
 });
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// -- Helpers -------------------------------------------------------------------
 
 function fmtDate(iso: string): string {
   return new Date(iso).toLocaleString("fr-BE", {
@@ -231,7 +231,7 @@ function escapeHtml(str: string): string {
     .replace(/"/g, "&quot;");
 }
 
-// ── HTML email ────────────────────────────────────────────────────────────────
+// -- HTML email ----------------------------------------------------------------
 
 function buildDigestHtml(data: {
   today: string;
@@ -252,71 +252,62 @@ function buildDigestHtml(data: {
     autresActivites,
   } = data;
 
-  const stat = (value: number, label: string, color: string) => `
-    <td style="text-align:center;padding:0 16px;">
-      <div style="font-size:28px;font-weight:300;color:${color};letter-spacing:-0.02em;">${value}</div>
-      <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.2em;color:rgba(255,255,255,0.35);margin-top:4px;">${label}</div>
-    </td>`;
+  const S = {
+    text:    "font-size:13px;color:#111111;",
+    meta:    "font-size:11px;color:#999999;white-space:nowrap;",
+    empty:   "font-size:12px;color:#bbbbbb;font-style:italic;margin:0;",
+    sep:     "border-top:1px solid #e8e8e8;",
+    tdR:     "padding:7px 16px 7px 0;",
+    tdDate:  "padding:7px 0;",
+  };
 
-  const sectionTitle = (title: string, count: number, color = "#67e8f9") => `
-    <tr><td style="padding:28px 0 12px;">
-      <div style="display:flex;align-items:center;gap:10px;">
-        <span style="font-size:12px;text-transform:uppercase;letter-spacing:0.25em;color:${color};">${escapeHtml(title)}</span>
-        <span style="font-size:11px;color:rgba(255,255,255,0.25);">(${count})</span>
-        <div style="flex:1;height:1px;background:rgba(255,255,255,0.06);"></div>
-      </div>
+  const sectionTitle = (title: string) => `
+    <tr><td style="padding:24px 0 8px;">
+      <p style="margin:0;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.25em;color:#111111;">${escapeHtml(title)}</p>
+      <div style="height:1px;background:#e8e8e8;margin-top:6px;"></div>
     </td></tr>`;
 
   const emptyRow = (msg: string) => `
-    <tr><td style="padding:10px 0;">
-      <p style="margin:0;font-size:13px;color:rgba(255,255,255,0.25);font-style:italic;">${msg}</p>
-    </td></tr>`;
+    <tr><td style="padding:6px 0 2px;"><p style="${S.empty}">${msg}</p></td></tr>`;
 
-  // Section nouveaux membres
+  const row2 = (a: string, b: string) => `
+    <tr>
+      <td style="${S.tdR}${S.text}">${a}</td>
+      <td style="${S.tdDate}${S.meta}">${b}</td>
+    </tr>`;
+
   const membresRows = newMembers.length
     ? newMembers.map((m) => `
       <tr>
-        <td style="padding:7px 12px 7px 0;font-size:13px;color:rgba(255,255,255,0.8);">${escapeHtml(m.email)}</td>
-        <td style="padding:7px 12px 7px 0;font-size:11px;text-transform:uppercase;letter-spacing:0.15em;color:${m.role === "admin" ? "#67e8f9" : m.role === "moderator" ? "#fcd34d" : "rgba(255,255,255,0.4)"};">${escapeHtml(m.role)}</td>
-        <td style="padding:7px 0;font-size:11px;color:rgba(255,255,255,0.3);">${fmtDate(m.created_at)}</td>
+        <td style="${S.tdR}${S.text}">${escapeHtml(m.email)}</td>
+        <td style="padding:7px 16px 7px 0;font-size:11px;color:#999999;">${escapeHtml(m.role)}</td>
+        <td style="${S.tdDate}${S.meta}">${fmtDate(m.created_at)}</td>
       </tr>`).join("")
     : emptyRow("Aucun nouveau membre inscrit.");
 
-  // Section photos approuvées
   const approuveesRows = photoApprouvees.length
-    ? photoApprouvees.map((a) => `
-      <tr>
-        <td style="padding:7px 0;font-size:13px;color:rgba(255,255,255,0.8);">${escapeHtml(a.description)}</td>
-        <td style="padding:7px 0 7px 16px;font-size:11px;color:rgba(255,255,255,0.3);white-space:nowrap;">${fmtDate(a.created_at)}</td>
-      </tr>`).join("")
+    ? photoApprouvees.map((a) => row2(escapeHtml(a.description), fmtDate(a.created_at))).join("")
     : emptyRow("Aucune photo approuvée dans les dernières 24h.");
 
-  // Section photos rejetées
   const rejeteesRows = photoRejetees.length
-    ? photoRejetees.map((a) => `
-      <tr>
-        <td style="padding:7px 0;font-size:13px;color:rgba(255,255,255,0.8);">${escapeHtml(a.description)}</td>
-        <td style="padding:7px 0 7px 16px;font-size:11px;color:rgba(255,255,255,0.3);white-space:nowrap;">${fmtDate(a.created_at)}</td>
-      </tr>`).join("")
+    ? photoRejetees.map((a) => row2(escapeHtml(a.description), fmtDate(a.created_at))).join("")
     : emptyRow("Aucune photo rejetée dans les dernières 24h.");
 
-  // Section photos en attente
   const pendingRowsHtml = pendingRows.length
     ? pendingRows.map((p) => `
       <tr>
-        <td style="padding:7px 12px 7px 0;font-size:13px;color:rgba(255,255,255,0.8);">${escapeHtml(p.title)}</td>
-        <td style="padding:7px 12px 7px 0;font-size:11px;text-transform:uppercase;letter-spacing:0.1em;color:rgba(255,255,255,0.4);">${escapeHtml(p.village)}</td>
-        <td style="padding:7px 0;font-size:11px;color:rgba(255,255,255,0.3);white-space:nowrap;">${fmtDate(p.created_at)}</td>
+        <td style="${S.tdR}${S.text}">${escapeHtml(p.title)}</td>
+        <td style="padding:7px 16px 7px 0;font-size:11px;color:#999999;">${escapeHtml(p.village)}</td>
+        <td style="${S.tdDate}${S.meta}">${fmtDate(p.created_at)}</td>
       </tr>`).join("")
     : emptyRow("Aucune photo en attente d'approbation.");
 
-  // Section autres activités
   const autresRows = autresActivites.length
     ? autresActivites.map((a) => `
       <tr>
-        <td style="padding:7px 12px 7px 0;font-size:11px;text-transform:uppercase;letter-spacing:0.1em;color:rgba(255,255,255,0.35);">${escapeHtml(a.type)}</td>
-        <td style="padding:7px 12px 7px 0;font-size:13px;color:rgba(255,255,255,0.7);">${escapeHtml(a.description)}</td>
-        <td style="padding:7px 0;font-size:11px;color:rgba(255,255,255,0.3);white-space:nowrap;">${fmtDate(a.created_at)}</td>
+        <td style="padding:7px 16px 7px 0;font-size:11px;color:#999999;">${escapeHtml(a.type)}</td>
+        <td style="${S.tdR}${S.text}">${escapeHtml(a.description)}</td>
+        <td style="${S.tdDate}${S.meta}">${fmtDate(a.created_at)}</td>
       </tr>`).join("")
     : emptyRow("Aucune autre activité enregistrée.");
 
@@ -326,76 +317,71 @@ function buildDigestHtml(data: {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
-<body style="margin:0;padding:0;background:#0a0a0a;font-family:Arial,Helvetica,sans-serif;">
-<div style="max-width:600px;margin:0 auto;padding:40px 24px;">
+<body style="margin:0;padding:0;background:#ffffff;font-family:Helvetica,Arial,sans-serif;">
+<div style="max-width:560px;margin:0 auto;padding:36px 24px 48px;">
 
   <!-- En-tête -->
-  <p style="margin:0 0 4px;font-size:11px;text-transform:uppercase;letter-spacing:0.4em;color:#67e8f9;">
-    Plombières en Images
-  </p>
-  <h1 style="margin:0 0 4px;font-size:22px;font-weight:300;text-transform:uppercase;letter-spacing:0.12em;color:#ffffff;">
-    Journal quotidien
-  </h1>
-  <p style="margin:0 0 32px;font-size:12px;color:rgba(255,255,255,0.3);text-transform:capitalize;">
-    ${escapeHtml(today)}
-  </p>
+  <p style="margin:0 0 2px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.35em;color:#666666;">Plombières en Images</p>
+  <h1 style="margin:0 0 4px;font-size:22px;font-weight:400;color:#111111;letter-spacing:-0.01em;">Journal quotidien</h1>
+  <p style="margin:0 0 28px;font-size:12px;color:#999999;">${escapeHtml(today)}</p>
+  <div style="height:1px;background:#e8e8e8;margin-bottom:28px;"></div>
 
   <!-- Stats -->
-  <table style="width:100%;border-collapse:collapse;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:12px;margin-bottom:36px;">
+  <table style="width:100%;border-collapse:collapse;margin-bottom:8px;">
     <tr>
-      ${stat(newMembers.length, "Nouveaux membres", "#67e8f9")}
-      ${stat(photoApprouvees.length, "Approuvées", "#34d399")}
-      ${stat(photoRejetees.length, "Rejetées", "#f87171")}
-      ${stat(pendingRows.length, "En attente", "#fcd34d")}
+      <td style="width:25%;text-align:center;padding:0 0 24px;">
+        <div style="font-size:32px;font-weight:700;color:#111111;line-height:1;">${newMembers.length}</div>
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.15em;color:#666666;margin-top:5px;">Membres</div>
+      </td>
+      <td style="width:25%;text-align:center;padding:0 0 24px;border-left:1px solid #e8e8e8;">
+        <div style="font-size:32px;font-weight:700;color:#111111;line-height:1;">${photoApprouvees.length}</div>
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.15em;color:#666666;margin-top:5px;">Approuvées</div>
+      </td>
+      <td style="width:25%;text-align:center;padding:0 0 24px;border-left:1px solid #e8e8e8;">
+        <div style="font-size:32px;font-weight:700;color:#111111;line-height:1;">${photoRejetees.length}</div>
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.15em;color:#666666;margin-top:5px;">Rejetées</div>
+      </td>
+      <td style="width:25%;text-align:center;padding:0 0 24px;border-left:1px solid #e8e8e8;">
+        <div style="font-size:32px;font-weight:700;color:#111111;line-height:1;">${pendingRows.length}</div>
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.15em;color:#666666;margin-top:5px;">En attente</div>
+      </td>
     </tr>
   </table>
+  <div style="height:1px;background:#e8e8e8;margin-bottom:4px;"></div>
 
+  <!-- Sections -->
   <table style="width:100%;border-collapse:collapse;">
 
-    <!-- Nouveaux membres -->
-    ${sectionTitle("Nouveaux membres", newMembers.length)}
-    <tr><td>
-      <table style="width:100%;border-collapse:collapse;">${membresRows}</table>
-    </td></tr>
+    ${sectionTitle("Nouveaux membres")}
+    <tr><td><table style="width:100%;border-collapse:collapse;">${membresRows}</table></td></tr>
 
-    <!-- Photos approuvées -->
-    ${sectionTitle("Photos approuvées", photoApprouvees.length, "#34d399")}
-    <tr><td>
-      <table style="width:100%;border-collapse:collapse;">${approuveesRows}</table>
-    </td></tr>
+    ${sectionTitle("Photos approuvées")}
+    <tr><td><table style="width:100%;border-collapse:collapse;">${approuveesRows}</table></td></tr>
 
-    <!-- Photos rejetées -->
-    ${sectionTitle("Photos rejetées", photoRejetees.length, "#f87171")}
-    <tr><td>
-      <table style="width:100%;border-collapse:collapse;">${rejeteesRows}</table>
-    </td></tr>
+    ${sectionTitle("Photos rejetées")}
+    <tr><td><table style="width:100%;border-collapse:collapse;">${rejeteesRows}</table></td></tr>
 
-    <!-- Photos en attente -->
-    ${sectionTitle("Photos en attente d'approbation", pendingRows.length, "#fcd34d")}
-    <tr><td>
-      <table style="width:100%;border-collapse:collapse;">${pendingRowsHtml}</table>
-    </td></tr>
+    ${sectionTitle("Photos en attente d'approbation")}
+    <tr><td><table style="width:100%;border-collapse:collapse;">${pendingRowsHtml}</table></td></tr>
 
     ${pendingRows.length > 0 ? `
-    <tr><td style="padding:12px 0 0;">
+    <tr><td style="padding:10px 0 0;">
       <a href="https://photoplombieres.eu/admin"
-         style="display:inline-block;padding:10px 22px;background:rgba(103,232,249,0.1);border:1px solid rgba(103,232,249,0.35);color:#67e8f9;text-decoration:none;font-size:11px;text-transform:uppercase;letter-spacing:0.2em;border-radius:20px;">
-        Traiter les photos →
+         style="display:inline-block;padding:9px 18px;background:#111111;color:#ffffff;text-decoration:none;font-size:11px;letter-spacing:0.1em;">
+        Traiter les photos &rarr;
       </a>
     </td></tr>` : ""}
 
-    <!-- Autres activités -->
-    ${sectionTitle("Autres activités", autresActivites.length)}
-    <tr><td>
-      <table style="width:100%;border-collapse:collapse;">${autresRows}</table>
-    </td></tr>
+    ${sectionTitle("Autres activités")}
+    <tr><td><table style="width:100%;border-collapse:collapse;">${autresRows}</table></td></tr>
 
   </table>
 
   <!-- Pied de page -->
-  <p style="margin:36px 0 0;padding-top:20px;border-top:1px solid rgba(255,255,255,0.06);font-size:11px;color:rgba(255,255,255,0.2);line-height:1.6;">
-    Ce rapport est envoyé automatiquement chaque jour aux administrateurs de Plombières en Images.<br>
-    <a href="https://photoplombieres.eu/admin" style="color:rgba(103,232,249,0.5);text-decoration:none;">Accéder à l&apos;administration</a>
+  <div style="height:1px;background:#e8e8e8;margin:32px 0 20px;"></div>
+  <p style="margin:0;font-size:11px;color:#bbbbbb;line-height:1.7;">
+    Rapport automatique &mdash; Plombières en Images &mdash;
+    <a href="https://photoplombieres.eu/admin" style="color:#111111;text-decoration:underline;">Administration</a>
   </p>
 
 </div>
