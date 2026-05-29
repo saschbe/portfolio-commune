@@ -8,14 +8,16 @@ import PhotosSection from "./_components/PhotosSection";
 import UsersSection from "./_components/UsersSection";
 import PendingSection from "./_components/PendingSection";
 import LieuxSection from "./_components/LieuxSection";
+import SignalementsSection from "./_components/SignalementsSection";
 
-type Section = "photos" | "lieux" | "pending" | "users";
+type Section = "photos" | "lieux" | "pending" | "users" | "signalements";
 
 const navItems: { id: Section; label: string }[] = [
   { id: "photos", label: "Photos" },
   { id: "lieux", label: "Lieux" },
   { id: "pending", label: "En attente d'approbation" },
   { id: "users", label: "Utilisateurs" },
+  { id: "signalements", label: "Signalements" },
 ];
 
 export default function AdminPage() {
@@ -218,6 +220,7 @@ export default function AdminPage() {
         {activeSection === "pending" && (
           <PendingSection onCountChange={setPendingCount} />
         )}
+        {activeSection === "signalements" && <SignalementsSection />}
       </main>
     </div>
   );

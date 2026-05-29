@@ -64,6 +64,25 @@ function FilterIcon() {
   );
 }
 
+function FlagIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+      strokeLinejoin="round" aria-hidden="true">
+      <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+      <line x1="4" y1="22" x2="4" y2="15" />
+    </svg>
+  );
+}
+
+const RAISONS: { value: string; label: string }[] = [
+  { value: "personne_non_consentante", label: "Personne non consentante" },
+  { value: "informations_incorrectes", label: "Informations incorrectes" },
+  { value: "photo_non_conforme",       label: "Photo non conforme" },
+  { value: "violation_droits_auteur",  label: "Violation de droits d'auteur" },
+  { value: "autre",                    label: "Autre" },
+];
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function GaleriePage() {
@@ -92,6 +111,14 @@ export default function GaleriePage() {
   // Visionneuse
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
   const [showInfo, setShowInfo]           = useState(true);
+
+  // Signalement
+  const [reportingPhoto, setReportingPhoto] = useState<Photo | null>(null);
+  const [reportRaison, setReportRaison]     = useState("");
+  const [reportPrecision, setReportPrecision] = useState("");
+  const [reportEmail, setReportEmail]       = useState("");
+  const [reportLoading, setReportLoading]   = useState(false);
+  const [reportSuccess, setReportSuccess]   = useState(false);
 
   // ── Auth ────────────────────────────────────────────────────────────────────
 
@@ -146,17 +173,71 @@ export default function GaleriePage() {
     });
   }, []);
 
-  // Fermer visionneuse avec Échap
+  // Fermer visionneuse / modale avec Échap
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") {
+        if (reportingPhoto) { closeReport(); return; }
         if (selectedPhoto) { setSelectedPhoto(null); return; }
         if (panelOpen) setPanelOpen(false);
       }
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [selectedPhoto, panelOpen]);
+  }, [selectedPhoto, panelOpen, reportingPhoto]);
+
+  function openReport(photo: Photo, e?: React.MouseEvent) {
+    e?.stopPropagation();
+    if (!user) {
+      router.push("/login?next=/galerie");
+      return;
+    }
+    setReportingPhoto(photo);
+    setReportRaison("");
+    setReportPrecision("");
+    setReportEmail("");
+    setReportSuccess(false);
+  }
+
+  function closeReport() {
+    setReportingPhoto(null);
+    setReportRaison("");
+    setReportPrecision("");
+    setReportEmail("");
+    setReportSuccess(false);
+  }
+
+  async function handleReport() {
+    if (!reportingPhoto || !reportRaison) return;
+    setReportLoading(true);
+    const { data: insertData, error } = await supabase.from("signalements").insert({
+      photo_id: reportingPhoto.id,
+      raison: reportRaison,
+      details: reportPrecision.trim() || null,
+      email: reportEmail.trim() || null,
+    }).select();
+    console.log("[signalement] insert →", { data: insertData, error, errorJson: JSON.stringify(error) });
+    if (!error) {
+      supabase.from("photos").update({ status: "signaled" }).eq("id", reportingPhoto.id)
+        .then(({ error: e }) => console.log("[signalement] photo signaled →", e ?? "ok"));
+      fetch("https://fjglbztexnntivdrjhbv.supabase.co/functions/v1/notify-new-photo", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": "sb_publishable_xMlW5BYoriE-iDe8JsLq1Q_lU3Pcjwj",
+        },
+        body: JSON.stringify({ photo: { title: "Signalement reçu", village: reportRaison } }),
+      })
+        .then(async (res) => {
+          const body = await res.text();
+          console.log("[signalement] notify →", res.status, body);
+        })
+        .catch((err) => console.error("[signalement] notify error →", err));
+    }
+    setReportLoading(false);
+    setReportSuccess(true);
+    setTimeout(() => closeReport(), 2500);
+  }
 
   // ── Autocomplétion ───────────────────────────────────────────────────────────
 
@@ -452,6 +533,13 @@ export default function GaleriePage() {
                     Restaurée
                   </div>
                 )}
+                <button
+                  onClick={(e) => openReport(photo, e)}
+                  aria-label="Signaler cette photo"
+                  className="absolute top-3 left-3 opacity-0 group-hover:opacity-100 transition-all duration-300 p-1.5 rounded-full bg-black/50 backdrop-blur-sm text-white/40 hover:text-red-400 hover:bg-black/70"
+                >
+                  <FlagIcon />
+                </button>
               </div>
             ))}
           </div>
@@ -673,7 +761,93 @@ export default function GaleriePage() {
                     </span>
                   )}
                 </div>
+                <button
+                  onClick={(e) => { e.stopPropagation(); openReport(selectedPhoto); }}
+                  className="mt-5 flex items-center gap-1.5 text-[10px] uppercase tracking-[0.2em] text-white/25 hover:text-red-400/70 transition-colors duration-300"
+                >
+                  <FlagIcon /> Signaler
+                </button>
               </div>
+            )}
+          </div>
+        </div>
+      )}
+      {/* ── Modale signalement ──────────────────────────────────────────── */}
+      {reportingPhoto && (
+        <div className="fixed inset-0 z-200 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div
+            className="bg-zinc-950 border border-white/10 rounded-3xl p-8 w-full max-w-md shadow-[0_0_60px_rgba(0,0,0,0.8)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {reportSuccess ? (
+              <div className="text-center py-4">
+                <p className="text-emerald-400 uppercase tracking-[0.3em] text-xs mb-2">Signalement envoyé</p>
+                <p className="text-white/40 text-sm">Merci, nous examinerons votre signalement.</p>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-start justify-between mb-6">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.35em] text-white/40 mb-1">Signaler une photo</p>
+                    <p className="text-white text-sm font-light truncate max-w-65">{reportingPhoto.title}</p>
+                  </div>
+                  <button onClick={closeReport} className="text-white/30 hover:text-white text-2xl leading-none transition-colors">✕</button>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs uppercase tracking-[0.25em] text-white/50 mb-2">Raison *</label>
+                    <select
+                      value={reportRaison}
+                      onChange={(e) => setReportRaison(e.target.value)}
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-cyan-300/60 focus:bg-white/[0.07] transition-all duration-200 [&>option]:bg-zinc-900"
+                    >
+                      <option value="" disabled>Sélectionner une raison…</option>
+                      {RAISONS.map((r) => (
+                        <option key={r.value} value={r.value}>{r.label}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs uppercase tracking-[0.25em] text-white/50 mb-2">Précision <span className="text-white/25 normal-case tracking-normal">optionnel</span></label>
+                    <textarea
+                      value={reportPrecision}
+                      onChange={(e) => setReportPrecision(e.target.value)}
+                      rows={3}
+                      placeholder="Décrivez le problème…"
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder-white/30 focus:outline-none focus:border-cyan-300/60 focus:bg-white/[0.07] transition-all duration-200 resize-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs uppercase tracking-[0.25em] text-white/50 mb-2">Email <span className="text-white/25 normal-case tracking-normal">optionnel — pour être recontacté</span></label>
+                    <input
+                      type="email"
+                      value={reportEmail}
+                      onChange={(e) => setReportEmail(e.target.value)}
+                      placeholder="votre@email.com"
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder-white/30 focus:outline-none focus:border-cyan-300/60 focus:bg-white/[0.07] transition-all duration-200"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-3 mt-6">
+                  <button
+                    onClick={closeReport}
+                    className="flex-1 py-3 rounded-full border border-white/10 text-white/40 text-xs uppercase tracking-[0.25em] hover:border-white/20 hover:text-white/60 transition-all duration-300"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    onClick={handleReport}
+                    disabled={!reportRaison || reportLoading}
+                    className="flex-1 py-3 rounded-full border border-red-400/40 bg-red-400/10 text-red-400 text-xs uppercase tracking-[0.25em] hover:bg-red-400/20 hover:border-red-400/70 transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {reportLoading ? "Envoi…" : "Envoyer"}
+                  </button>
+                </div>
+              </>
             )}
           </div>
         </div>
