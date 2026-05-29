@@ -4,8 +4,14 @@ import { useState, useEffect } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { supabase } from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
+
+const LocationPicker = dynamic(
+  () => import("@/components/LocationPicker"),
+  { ssr: false, loading: () => <div className="w-full h-50 rounded-xl border border-white/10 bg-white/5 animate-pulse" /> }
+);
 
 const villages = [
   "Plombières",
@@ -39,6 +45,8 @@ type FormState = {
   type: string;
   restored: boolean;
   file: File | null;
+  latitude: string;
+  longitude: string;
 };
 
 const defaultForm: FormState = {
@@ -49,6 +57,8 @@ const defaultForm: FormState = {
   type: "",
   restored: false,
   file: null,
+  latitude: "",
+  longitude: "",
 };
 
 const inputClass =
@@ -171,6 +181,8 @@ export default function DashboardPage() {
       restored: form.restored,
       timeline: form.year,
       status: "pending",
+      latitude: form.latitude !== "" ? parseFloat(form.latitude) : null,
+      longitude: form.longitude !== "" ? parseFloat(form.longitude) : null,
       user_id: user.id,
     });
 
@@ -392,6 +404,26 @@ export default function DashboardPage() {
                     />
                   </div>
 
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className={labelClass}>Latitude</label>
+                      <input type="number" step="any" value={form.latitude}
+                        onChange={(e) => setField("latitude", e.target.value)}
+                        placeholder="50.727" className={inputClass} />
+                    </div>
+                    <div>
+                      <label className={labelClass}>Longitude</label>
+                      <input type="number" step="any" value={form.longitude}
+                        onChange={(e) => setField("longitude", e.target.value)}
+                        placeholder="5.958" className={inputClass} />
+                    </div>
+                  </div>
+                  <LocationPicker
+                    lat={form.latitude}
+                    lng={form.longitude}
+                    onChange={(lat, lng) => { setField("latitude", lat); setField("longitude", lng); }}
+                  />
+
                   <div className="flex items-center gap-3">
                     <input
                       id="restored"
@@ -484,7 +516,7 @@ export default function DashboardPage() {
                 {photos.map((photo) => (
                   <div
                     key={photo.id}
-                    className="flex items-center gap-4 bg-white/[0.02] border border-white/10 rounded-2xl p-3 hover:border-white/20 transition-all"
+                    className="flex items-center gap-4 bg-white/2 border border-white/10 rounded-2xl p-3 hover:border-white/20 transition-all"
                   >
                     <div className="relative w-16 h-12 rounded-lg overflow-hidden shrink-0 bg-white/5">
                       <Image

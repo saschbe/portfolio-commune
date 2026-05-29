@@ -56,16 +56,18 @@ export default function MapClient() {
         center: [50.727, 5.958],
         zoom: 13,
         zoomControl: true,
+        attributionControl: false,
       });
       mapRef.current = map;
 
       L.tileLayer(
         "https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png",
-        {
-          attribution: "© Stadia Maps © OpenStreetMap",
-          maxZoom: 20,
-        }
+        { maxZoom: 20 }
       ).addTo(map);
+
+      L.control.attribution({ prefix: false })
+        .addAttribution('<span style="font-size:10px;opacity:0.4">© Stadia Maps © OpenStreetMap</span>')
+        .addTo(map);
 
       const cyanIcon = L.divIcon({
         html: `<div style="width:14px;height:14px;background:#67e8f9;border-radius:50%;border:2px solid rgba(8,145,178,0.9);box-shadow:0 0 12px rgba(103,232,249,0.55),0 0 0 5px rgba(103,232,249,0.12)"></div>`,

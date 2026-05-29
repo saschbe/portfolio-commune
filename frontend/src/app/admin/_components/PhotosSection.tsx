@@ -2,7 +2,13 @@
 
 import { useState, useEffect } from "react";
 import Image from "next/image";
+import dynamic from "next/dynamic";
 import { supabase } from "@/lib/supabase";
+
+const LocationPicker = dynamic(
+  () => import("@/components/LocationPicker"),
+  { ssr: false, loading: () => <div className="w-full h-50 rounded-xl border border-white/10 bg-white/5 animate-pulse" /> }
+);
 
 const villages = [
   "Plombières",
@@ -22,6 +28,8 @@ type Photo = {
   description: string;
   type: string;
   restored: boolean;
+  latitude: number | null;
+  longitude: number | null;
 };
 
 type FormState = {
@@ -32,6 +40,8 @@ type FormState = {
   type: string;
   restored: boolean;
   file: File | null;
+  latitude: string;
+  longitude: string;
 };
 
 const defaultForm: FormState = {
@@ -42,6 +52,8 @@ const defaultForm: FormState = {
   type: "",
   restored: false,
   file: null,
+  latitude: "",
+  longitude: "",
 };
 
 const inputClass =
@@ -61,6 +73,8 @@ export default function PhotosSection() {
   const [addError, setAddError] = useState("");
 
   const [editPhoto, setEditPhoto] = useState<Photo | null>(null);
+  const [editLatStr, setEditLatStr] = useState("");
+  const [editLngStr, setEditLngStr] = useState("");
   const [editStatus, setEditStatus] = useState<
     "idle" | "loading" | "success" | "error"
   >("idle");
@@ -119,6 +133,8 @@ export default function PhotosSection() {
       type: form.type,
       restored: form.restored,
       timeline: form.year,
+      latitude: form.latitude !== "" ? parseFloat(form.latitude) : null,
+      longitude: form.longitude !== "" ? parseFloat(form.longitude) : null,
     });
     if (insertError) {
       setAddError(insertError.message);
@@ -156,6 +172,8 @@ export default function PhotosSection() {
         type: editPhoto.type,
         restored: editPhoto.restored,
         timeline: editPhoto.year,
+        latitude: editLatStr !== "" ? parseFloat(editLatStr) : null,
+        longitude: editLngStr !== "" ? parseFloat(editLngStr) : null,
       })
       .eq("id", editPhoto.id);
     if (error) {
@@ -258,6 +276,25 @@ export default function PhotosSection() {
                 className={`${inputClass} resize-none`}
               />
             </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className={labelClass}>Latitude</label>
+                <input type="number" step="any" value={form.latitude}
+                  onChange={(e) => setField("latitude", e.target.value)}
+                  placeholder="50.727" className={inputClass} />
+              </div>
+              <div>
+                <label className={labelClass}>Longitude</label>
+                <input type="number" step="any" value={form.longitude}
+                  onChange={(e) => setField("longitude", e.target.value)}
+                  placeholder="5.958" className={inputClass} />
+              </div>
+            </div>
+            <LocationPicker
+              lat={form.latitude}
+              lng={form.longitude}
+              onChange={(lat, lng) => { setField("latitude", lat); setField("longitude", lng); }}
+            />
             <div className="flex items-center gap-3">
               <input
                 id="add-restored"
@@ -345,6 +382,8 @@ export default function PhotosSection() {
                 <button
                   onClick={() => {
                     setEditPhoto(photo);
+                    setEditLatStr(photo.latitude != null ? String(photo.latitude) : "");
+                    setEditLngStr(photo.longitude != null ? String(photo.longitude) : "");
                     setEditStatus("idle");
                   }}
                   className="px-3 py-1.5 rounded-lg border border-white/10 text-white/50 text-xs uppercase tracking-[0.15em] hover:border-cyan-300/40 hover:text-cyan-300 transition-all"
@@ -448,6 +487,25 @@ export default function PhotosSection() {
                   className={`${inputClass} resize-none`}
                 />
               </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className={labelClass}>Latitude</label>
+                  <input type="number" step="any" value={editLatStr}
+                    onChange={(e) => setEditLatStr(e.target.value)}
+                    placeholder="50.727" className={inputClass} />
+                </div>
+                <div>
+                  <label className={labelClass}>Longitude</label>
+                  <input type="number" step="any" value={editLngStr}
+                    onChange={(e) => setEditLngStr(e.target.value)}
+                    placeholder="5.958" className={inputClass} />
+                </div>
+              </div>
+              <LocationPicker
+                lat={editLatStr}
+                lng={editLngStr}
+                onChange={(lat, lng) => { setEditLatStr(lat); setEditLngStr(lng); }}
+              />
               <div className="flex items-center gap-3">
                 <input
                   id="edit-restored"
