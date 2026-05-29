@@ -4,7 +4,6 @@ import Header from "@/components/navigation/Header";
 import TimelineSection from "../components/timeline/TimelineSection";
 import SectionTitle from "@/components/SectionTitle";
 import Image from "next/image";
-import Gallery from "@/components/Gallery";
 import { useState } from "react";
 
 export default function Home() {
@@ -144,7 +143,6 @@ export default function Home() {
         </div>
       </section>
 
-      <Gallery />
       <main className="min-h-screen bg-black text-white overflow-x-hidden">
         <TimelineSection setSelectedTimeline={setSelectedTimeline} />
       </main>

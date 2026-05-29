@@ -138,8 +138,8 @@ export default function Header() {
               <a href="/carte" className="hover:text-cyan-300 transition-all duration-300">
                 Carte
               </a>
-              <a href="/collections" className="hover:text-cyan-300 transition-all duration-300">
-                Collections
+              <a href="/mentions-legales" className="hover:text-cyan-300 transition-all duration-300">
+                Infos
               </a>
 
               {/* Auth — desktop */}
@@ -248,8 +248,8 @@ export default function Header() {
               <a href="/carte" onClick={() => setMobileMenuOpen(false)} className="hover:text-cyan-300 transition-all duration-300">
                 Carte
               </a>
-              <a href="/collections" onClick={() => setMobileMenuOpen(false)} className="hover:text-cyan-300 transition-all duration-300">
-                Collections
+              <a href="/mentions-legales" onClick={() => setMobileMenuOpen(false)} className="hover:text-cyan-300 transition-all duration-300">
+                Infos
               </a>
 
               {/* Auth — mobile */}
