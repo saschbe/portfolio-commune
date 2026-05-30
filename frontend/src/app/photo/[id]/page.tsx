@@ -84,12 +84,17 @@ export default function PhotoPage() {
   const [loading, setLoading]       = useState(true);
   const [notFound, setNotFound]     = useState(false);
 
+  // Navigation prev/next (déclarées tôt pour être disponibles dans les useEffect)
+  const currentIndex = adjacentIds.indexOf(id);
+  const prevId = currentIndex > 0 ? adjacentIds[currentIndex - 1] : null;
+  const nextId = currentIndex < adjacentIds.length - 1 ? adjacentIds[currentIndex + 1] : null;
+
   // Auth
   const [user, setUser] = useState<User | null>(null);
 
   // Zoom lightbox
   const [zoomed, setZoomed] = useState(false);
-  const swipeRef = useRef<{ x: number; pinch: boolean } | null>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
 
   // Report modal
   const [reportOpen, setReportOpen]         = useState(false);
@@ -121,6 +126,40 @@ export default function PhotoPage() {
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [zoomed, reportOpen, adjacentIds, id, router]);
+
+  // ── Swipe navigation dans la lightbox ────────────────────────────────────
+
+  useEffect(() => {
+    if (!zoomed) return;
+    const el = overlayRef.current;
+    if (!el) return;
+
+    let startX = 0;
+    let pinch = false;
+
+    function onStart(e: TouchEvent) {
+      pinch = e.touches.length > 1;
+      if (!pinch) startX = e.touches[0].clientX;
+    }
+    function onMove(e: TouchEvent) {
+      if (e.touches.length > 1) pinch = true;
+    }
+    function onEnd(e: TouchEvent) {
+      if (pinch) return;
+      const dx = e.changedTouches[0].clientX - startX;
+      if (dx < -50 && nextId) { setZoomed(false); router.push(`/photo/${nextId}`); }
+      if (dx >  50 && prevId) { setZoomed(false); router.push(`/photo/${prevId}`); }
+    }
+
+    el.addEventListener("touchstart", onStart, { passive: true });
+    el.addEventListener("touchmove",  onMove,  { passive: true });
+    el.addEventListener("touchend",   onEnd,   { passive: true });
+    return () => {
+      el.removeEventListener("touchstart", onStart);
+      el.removeEventListener("touchmove",  onMove);
+      el.removeEventListener("touchend",   onEnd);
+    };
+  }, [zoomed, nextId, prevId, router]);
 
   // ── Data loading ──────────────────────────────────────────────────────────
 
@@ -211,12 +250,6 @@ export default function PhotoPage() {
     }
     setReportLoading(false);
   }
-
-  // ── Derived navigation values ─────────────────────────────────────────────
-
-  const currentIndex = adjacentIds.indexOf(id);
-  const prevId = currentIndex > 0 ? adjacentIds[currentIndex - 1] : null;
-  const nextId = currentIndex < adjacentIds.length - 1 ? adjacentIds[currentIndex + 1] : null;
 
   // ── Loading / not-found states ────────────────────────────────────────────
 
@@ -441,24 +474,9 @@ export default function PhotoPage() {
       {/* ── Zoom lightbox ─────────────────────────────────────────────── */}
       {zoomed && (
         <div
+          ref={overlayRef}
           className="fixed inset-0 z-[100] bg-black/96 backdrop-blur-sm flex items-center justify-center"
           onClick={() => setZoomed(false)}
-          onTouchStart={(e) => {
-            if (e.touches.length === 1)
-              swipeRef.current = { x: e.touches[0].clientX, pinch: false };
-          }}
-          onTouchMove={(e) => {
-            if (e.touches.length > 1 && swipeRef.current)
-              swipeRef.current.pinch = true;
-          }}
-          onTouchEnd={(e) => {
-            const s = swipeRef.current;
-            swipeRef.current = null;
-            if (!s || s.pinch) return;
-            const dx = e.changedTouches[0].clientX - s.x;
-            if (dx < -50 && nextId)  { setZoomed(false); router.push(`/photo/${nextId}`); }
-            if (dx >  50 && prevId)  { setZoomed(false); router.push(`/photo/${prevId}`); }
-          }}
         >
           <button
             onClick={() => setZoomed(false)}
