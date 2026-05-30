@@ -89,6 +89,7 @@ export default function PhotoPage() {
 
   // Zoom lightbox
   const [zoomed, setZoomed] = useState(false);
+  const swipeRef = useRef<{ x: number; pinch: boolean } | null>(null);
 
   // Report modal
   const [reportOpen, setReportOpen]         = useState(false);
@@ -442,6 +443,22 @@ export default function PhotoPage() {
         <div
           className="fixed inset-0 z-[100] bg-black/96 backdrop-blur-sm flex items-center justify-center"
           onClick={() => setZoomed(false)}
+          onTouchStart={(e) => {
+            if (e.touches.length === 1)
+              swipeRef.current = { x: e.touches[0].clientX, pinch: false };
+          }}
+          onTouchMove={(e) => {
+            if (e.touches.length > 1 && swipeRef.current)
+              swipeRef.current.pinch = true;
+          }}
+          onTouchEnd={(e) => {
+            const s = swipeRef.current;
+            swipeRef.current = null;
+            if (!s || s.pinch) return;
+            const dx = e.changedTouches[0].clientX - s.x;
+            if (dx < -50 && nextId)  { setZoomed(false); router.push(`/photo/${nextId}`); }
+            if (dx >  50 && prevId)  { setZoomed(false); router.push(`/photo/${prevId}`); }
+          }}
         >
           <button
             onClick={() => setZoomed(false)}
