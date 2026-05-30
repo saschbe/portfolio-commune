@@ -108,6 +108,8 @@ export default function GaleriePage() {
   const [focusedCat, setFocusedCat]         = useState<string | null>(null);
   const debounceRefs    = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const abortRefs       = useRef<Record<string, AbortController>>({});
+  const [filterRestaureeOui, setFilterRestaureeOui] = useState(false);
+  const [filterRestaureeNon, setFilterRestaureeNon] = useState(false);
 
   // Signalement
   const [reportingPhoto, setReportingPhoto] = useState<Photo | null>(null);
@@ -355,10 +357,13 @@ export default function GaleriePage() {
 
   // ── Filtrage côté client ─────────────────────────────────────────────────────
 
-  const filteredPhotos = activeFilters.length === 0
+  // Restaurée : filtre actif seulement si un seul des deux boutons est activé
+  const restoreeFiltered = filterRestaureeOui !== filterRestaureeNon;
+
+  const filteredPhotos = (activeFilters.length === 0 && !restoreeFiltered)
     ? photos
-    : photos.filter(photo =>
-        activeFilters.every(f => {
+    : photos.filter(photo => {
+        const passesFilters = activeFilters.every(f => {
           const val = (photo as unknown as Record<string, unknown>)[f.colonne];
           if (val === null || val === undefined) return false;
           if (typeof val === "boolean") {
@@ -366,8 +371,13 @@ export default function GaleriePage() {
             return val ? (v === "oui" || v === "true") : (v === "non" || v === "false");
           }
           return String(val).toLowerCase() === f.value.toLowerCase();
-        })
-      );
+        });
+        if (!passesFilters) return false;
+        if (restoreeFiltered) return filterRestaureeOui ? photo.restored === true : photo.restored === false;
+        return true;
+      });
+
+  const totalActiveFilters = activeFilters.length + (restoreeFiltered ? 1 : 0);
 
   const displayName =
     (user?.user_metadata?.name as string | undefined) ??
@@ -404,7 +414,7 @@ export default function GaleriePage() {
             {/* Compteur de photos */}
             {!loading && (
               <span className="tabular-nums tracking-[0.2em] text-sm uppercase">
-                {activeFilters.length > 0
+                {totalActiveFilters > 0
                   ? <span><span className="text-cyan-300 font-medium">{filteredPhotos.length}</span><span className="text-white/30"> / {photos.length} photos</span></span>
                   : <span className="text-white/50">{photos.length} photos</span>
                 }
@@ -415,16 +425,16 @@ export default function GaleriePage() {
             <button
               onClick={() => setPanelOpen(true)}
               className={`flex items-center gap-2.5 px-6 py-2.5 rounded-full border text-sm uppercase tracking-[0.25em] transition-all duration-300 ${
-                activeFilters.length > 0
+                totalActiveFilters > 0
                   ? "bg-cyan-300/10 border-cyan-300/40 text-cyan-300 hover:bg-cyan-300/20 hover:border-cyan-300/70"
                   : "border-white/20 bg-white/5 text-white hover:bg-white/10 hover:border-white/40"
               }`}
             >
               <FilterIcon />
               Filtres
-              {activeFilters.length > 0 && (
+              {totalActiveFilters > 0 && (
                 <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-cyan-300 text-black text-[10px] font-bold">
-                  {activeFilters.length}
+                  {totalActiveFilters}
                 </span>
               )}
             </button>
@@ -464,11 +474,26 @@ export default function GaleriePage() {
             )}
           </nav>
 
-          {/* Mobile : filtres + user */}
-          <div className="md:hidden flex items-center gap-4">
-            <button onClick={() => setPanelOpen(true)}
-              className={`transition-colors duration-300 ${activeFilters.length > 0 ? "text-cyan-300" : "text-white/60 hover:text-cyan-300"}`}>
+          {/* Mobile : accueil + filtres + user */}
+          <div className="md:hidden flex items-center gap-3">
+            <Link href="/" className="text-xs uppercase tracking-[0.2em] text-white/70 hover:text-cyan-300 transition-all duration-300">
+              Accueil
+            </Link>
+            <button
+              onClick={() => setPanelOpen(true)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs uppercase tracking-[0.25em] transition-all duration-300 ${
+                totalActiveFilters > 0
+                  ? "bg-cyan-300/10 border-cyan-300/40 text-cyan-300 hover:bg-cyan-300/20 hover:border-cyan-300/70"
+                  : "border-white/20 bg-white/5 text-white/70 hover:bg-white/10 hover:border-white/40"
+              }`}
+            >
               <FilterIcon />
+              Filtres
+              {totalActiveFilters > 0 && (
+                <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-cyan-300 text-black text-[9px] font-bold">
+                  {totalActiveFilters}
+                </span>
+              )}
             </button>
             {user ? (
               <div className="relative" data-user-dropdown="">
@@ -510,11 +535,11 @@ export default function GaleriePage() {
         </div>
 
         {/* Barre filtres actifs */}
-        {activeFilters.length > 0 && (
+        {totalActiveFilters > 0 && (
           <div className="flex flex-col gap-3 mb-10">
             <div className="flex items-center gap-4">
               <button
-                onClick={() => setActiveFilters([])}
+                onClick={() => { setActiveFilters([]); setFilterRestaureeOui(false); setFilterRestaureeNon(false); }}
                 className="text-[10px] uppercase tracking-[0.25em] text-white/30 hover:text-white/60 transition-colors"
               >
                 Tout effacer
@@ -548,8 +573,9 @@ export default function GaleriePage() {
         ) : filteredPhotos.length === 0 ? (
           <div className="text-center py-28 border border-white/5 rounded-3xl">
             <p className="text-white/20 uppercase tracking-[0.35em] text-xs mb-4">Aucune photo</p>
-            {activeFilters.length > 0 && (
-              <button onClick={() => setActiveFilters([])}
+            {totalActiveFilters > 0 && (
+              <button
+                onClick={() => { setActiveFilters([]); setFilterRestaureeOui(false); setFilterRestaureeNon(false); }}
                 className="text-cyan-300/50 hover:text-cyan-300 text-[10px] uppercase tracking-[0.25em] transition-colors">
                 Effacer les filtres →
               </button>
@@ -614,9 +640,9 @@ export default function GaleriePage() {
         <div className="flex items-center justify-between px-6 py-5 border-b border-white/10 shrink-0">
           <div>
             <p className="text-cyan-300 uppercase tracking-[0.35em] text-xs mb-0.5">Filtres</p>
-            {activeFilters.length > 0 && (
+            {totalActiveFilters > 0 && (
               <p className="text-white/30 text-[10px] uppercase tracking-[0.2em]">
-                {activeFilters.length} actif{activeFilters.length > 1 ? "s" : ""}
+                {totalActiveFilters} actif{totalActiveFilters > 1 ? "s" : ""}
               </p>
             )}
           </div>
@@ -647,72 +673,99 @@ export default function GaleriePage() {
                   <label className="block text-[10px] uppercase tracking-[0.3em] text-white mb-2">
                     {cat.nom}
                   </label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={currentValue}
-                      onChange={(e) => handleSearchChange(cat.id, cat.colonne, e.target.value)}
-                      onFocus={() => setFocusedCat(cat.id)}
-                      onBlur={() => setTimeout(() => {
-                        setFocusedCat(null);
-                        setSuggestions(prev => ({ ...prev, [cat.id]: [] }));
-                      }, 150)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && currentValue.trim())
-                          addFilter(cat, currentValue.trim());
-                        if (e.key === "Escape") {
-                          setSearchValues(prev => ({ ...prev, [cat.id]: "" }));
-                          setSuggestions(prev => ({ ...prev, [cat.id]: [] }));
-                        }
-                      }}
-                      placeholder={`Rechercher…`}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/25 focus:outline-none focus:border-cyan-300/50 transition-all"
-                    />
 
-                    {/* Suggestions */}
-                    {(showSuggestions || showFreeText) && (
-                      <div className="absolute top-full left-0 right-0 mt-1 bg-zinc-900 border border-white/10 rounded-xl overflow-hidden z-10 shadow-[0_4px_24px_rgba(0,0,0,0.5)]">
-                        {currentSuggestions.map((s) => (
-                          <button
-                            key={s}
-                            onMouseDown={() => addFilter(cat, s)}
-                            className="w-full text-left px-4 py-2.5 text-sm text-white/70 hover:text-cyan-300 hover:bg-white/5 transition-all"
-                          >
-                            {s}
-                          </button>
-                        ))}
-                        {showFreeText && (
-                          <button
-                            onMouseDown={() => addFilter(cat, currentValue.trim())}
-                            className="w-full text-left px-4 py-2.5 text-sm text-white/50 hover:text-cyan-300 hover:bg-white/5 transition-all border-t border-white/5"
-                          >
-                            Filtrer par « {currentValue.trim()} »
-                          </button>
+                  {cat.colonne === "restored" ? (
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setFilterRestaureeOui(v => !v)}
+                        className={`flex-1 py-2 rounded-xl border text-xs uppercase tracking-[0.25em] transition-all duration-200 ${
+                          filterRestaureeOui
+                            ? "bg-cyan-300/10 border-cyan-300/40 text-cyan-300"
+                            : "bg-white/5 border-white/10 text-white/50 hover:bg-white/[0.07] hover:border-white/20 hover:text-white/70"
+                        }`}
+                      >
+                        Oui
+                      </button>
+                      <button
+                        onClick={() => setFilterRestaureeNon(v => !v)}
+                        className={`flex-1 py-2 rounded-xl border text-xs uppercase tracking-[0.25em] transition-all duration-200 ${
+                          filterRestaureeNon
+                            ? "bg-cyan-300/10 border-cyan-300/40 text-cyan-300"
+                            : "bg-white/5 border-white/10 text-white/50 hover:bg-white/[0.07] hover:border-white/20 hover:text-white/70"
+                        }`}
+                      >
+                        Non
+                      </button>
+                    </div>
+                  ) : (
+                    /* Champ texte + suggestions + badges */
+                    <>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={currentValue}
+                          onChange={(e) => handleSearchChange(cat.id, cat.colonne, e.target.value)}
+                          onFocus={() => setFocusedCat(cat.id)}
+                          onBlur={() => setTimeout(() => {
+                            setFocusedCat(null);
+                            setSuggestions(prev => ({ ...prev, [cat.id]: [] }));
+                          }, 150)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && currentValue.trim())
+                              addFilter(cat, currentValue.trim());
+                            if (e.key === "Escape") {
+                              setSearchValues(prev => ({ ...prev, [cat.id]: "" }));
+                              setSuggestions(prev => ({ ...prev, [cat.id]: [] }));
+                            }
+                          }}
+                          placeholder="Rechercher…"
+                          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/25 focus:outline-none focus:border-cyan-300/50 transition-all"
+                        />
+
+                        {(showSuggestions || showFreeText) && (
+                          <div className="absolute top-full left-0 right-0 mt-1 bg-zinc-900 border border-white/10 rounded-xl overflow-hidden z-10 shadow-[0_4px_24px_rgba(0,0,0,0.5)]">
+                            {currentSuggestions.map((s) => (
+                              <button
+                                key={s}
+                                onMouseDown={() => addFilter(cat, s)}
+                                className="w-full text-left px-4 py-2.5 text-sm text-white/70 hover:text-cyan-300 hover:bg-white/5 transition-all"
+                              >
+                                {s}
+                              </button>
+                            ))}
+                            {showFreeText && (
+                              <button
+                                onMouseDown={() => addFilter(cat, currentValue.trim())}
+                                className="w-full text-left px-4 py-2.5 text-sm text-white/50 hover:text-cyan-300 hover:bg-white/5 transition-all border-t border-white/5"
+                              >
+                                Filtrer par « {currentValue.trim()} »
+                              </button>
+                            )}
+                          </div>
                         )}
                       </div>
-                    )}
-                  </div>
 
-                  {/* Filtres actifs pour cette catégorie */}
-                  {activeFilters.filter(f => f.colonne === cat.colonne).length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 mt-2">
-                      {activeFilters
-                        .map((f, i) => f.colonne === cat.colonne ? { f, i } : null)
-                        .filter(Boolean)
-                        .map((item) => (
-                          <span key={item!.i}
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-cyan-300/10 border border-cyan-300/30 text-cyan-300 text-[9px] uppercase tracking-[0.15em]"
-                          >
-                            {item!.f.value}
-                            <button
-                              onClick={() => removeFilter(item!.i)}
-                              className="text-cyan-300/50 hover:text-cyan-300 leading-none"
-                            >
-                              ✕
-                            </button>
-                          </span>
-                        ))}
-                    </div>
+                      {activeFilters.filter(f => f.colonne === cat.colonne).length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mt-2">
+                          {activeFilters
+                            .map((f, i) => f.colonne === cat.colonne ? { f, i } : null)
+                            .filter(Boolean)
+                            .map((item) => (
+                              <span key={item!.i}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-cyan-300/10 border border-cyan-300/30 text-cyan-300 text-[9px] uppercase tracking-[0.15em]"
+                              >
+                                {item!.f.value}
+                                <button
+                                  onClick={() => removeFilter(item!.i)}
+                                  className="text-cyan-300/50 hover:text-cyan-300 leading-none"
+                                >
+                                  ✕
+                                </button>
+                              </span>
+                            ))}
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               );
@@ -721,10 +774,10 @@ export default function GaleriePage() {
         </div>
 
         {/* Pied du panneau */}
-        {activeFilters.length > 0 && (
+        {totalActiveFilters > 0 && (
           <div className="shrink-0 px-6 py-4 border-t border-white/10">
             <button
-              onClick={() => setActiveFilters([])}
+              onClick={() => { setActiveFilters([]); setFilterRestaureeOui(false); setFilterRestaureeNon(false); }}
               className="w-full py-2.5 rounded-full border border-white/10 text-white/40 text-xs uppercase tracking-[0.25em] hover:border-white/20 hover:text-white/60 transition-all"
             >
               Effacer tous les filtres

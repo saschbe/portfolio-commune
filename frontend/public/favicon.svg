@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Fond noir arrondi -->
+  <rect width="32" height="32" rx="6" fill="#000"/>
+  <!-- Corps de l'appareil -->
+  <rect x="3" y="11" width="26" height="17" rx="3" fill="none" stroke="#22d3ee" stroke-width="1.8"/>
+  <!-- Bosse viseur (fond noir pour couvrir le bord du corps) -->
+  <rect x="11" y="7" width="10" height="5" rx="2" fill="#000" stroke="#22d3ee" stroke-width="1.8"/>
+  <!-- Anneau objectif -->
+  <circle cx="16" cy="19.5" r="5" fill="none" stroke="#22d3ee" stroke-width="1.5"/>
+  <!-- Centre objectif rempli -->
+  <circle cx="16" cy="19.5" r="2.2" fill="#22d3ee"/>
+  <!-- Indicateur flash -->
+  <circle cx="24" cy="15.5" r="1.2" fill="#22d3ee"/>
+</svg>

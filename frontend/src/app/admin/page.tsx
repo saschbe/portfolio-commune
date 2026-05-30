@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
@@ -23,18 +23,32 @@ const navItems: { id: Section; label: string }[] = [
 export default function AdminPage() {
   const router = useRouter();
   const [activeSection, setActiveSection] = useState<Section>("photos");
-  const [pendingCount, setPendingCount] = useState(0);
+  const [pendingCount, setPendingCount]           = useState(0);
+  const [signalementsCount, setSignalementsCount] = useState(0);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [currentRole, setCurrentRole] = useState<string>("");
   const [notifNewPhoto, setNotifNewPhoto] = useState(false);
   const [savingNotif, setSavingNotif] = useState(false);
 
-  useEffect(() => {
+  const refreshPending = useCallback(() => {
     supabase
       .from("photos")
       .select("*", { count: "exact", head: true })
       .eq("status", "pending")
       .then(({ count }) => setPendingCount(count ?? 0));
+  }, []);
+
+  const refreshSignalements = useCallback(() => {
+    supabase
+      .from("signalements")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "nouveau")
+      .then(({ count }) => setSignalementsCount(count ?? 0));
+  }, []);
+
+  useEffect(() => {
+    refreshPending();
+    refreshSignalements();
 
     supabase.auth.getUser().then(({ data }) => {
       if (!data.user) return;
@@ -50,7 +64,15 @@ export default function AdminPage() {
           }
         });
     });
-  }, []);
+
+    const channel = supabase
+      .channel("admin-badges")
+      .on("postgres_changes", { event: "*", schema: "public", table: "photos" }, refreshPending)
+      .on("postgres_changes", { event: "*", schema: "public", table: "signalements" }, refreshSignalements)
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [refreshPending, refreshSignalements]);
 
   async function handleNotifToggle(value: boolean) {
     const { data: { user } } = await supabase.auth.getUser();
@@ -89,6 +111,11 @@ export default function AdminPage() {
       {id === "pending" && pendingCount > 0 && (
         <span className="ml-2 inline-flex items-center justify-center w-5 h-5 rounded-full bg-cyan-300 text-black text-[10px] font-bold">
           {pendingCount > 9 ? "9+" : pendingCount}
+        </span>
+      )}
+      {id === "signalements" && signalementsCount > 0 && (
+        <span className="ml-2 inline-flex items-center justify-center w-5 h-5 rounded-full bg-red-400 text-white text-[10px] font-bold">
+          {signalementsCount > 9 ? "9+" : signalementsCount}
         </span>
       )}
     </button>
@@ -218,9 +245,11 @@ export default function AdminPage() {
         {activeSection === "lieux" && <LieuxSection />}
         {activeSection === "users" && <UsersSection />}
         {activeSection === "pending" && (
-          <PendingSection onCountChange={setPendingCount} />
+          <PendingSection onCountChange={refreshPending} />
         )}
-        {activeSection === "signalements" && <SignalementsSection />}
+        {activeSection === "signalements" && (
+          <SignalementsSection onCountChange={refreshSignalements} />
+        )}
       </main>
     </div>
   );

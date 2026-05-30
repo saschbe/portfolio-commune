@@ -49,7 +49,7 @@ function fmtDate(iso: string) {
   });
 }
 
-export default function SignalementsSection() {
+export default function SignalementsSection({ onCountChange }: { onCountChange: () => void }) {
   const [signalements, setSignalements] = useState<Signalement[]>([]);
   const [loading, setLoading]           = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
@@ -89,6 +89,7 @@ export default function SignalementsSection() {
     await supabase.from("signalements").update({ status: "resolved" }).eq("id", s.id);
     setSignalements((prev) => prev.filter((x) => x.id !== s.id));
     setProcessingId(null);
+    onCountChange();
   }
 
   function startEdit(s: Signalement) {
@@ -134,6 +135,7 @@ export default function SignalementsSection() {
     setMotifId(null);
     setMotifText("");
     setProcessingId(null);
+    onCountChange();
   }
 
   async function approvePhoto(s: Signalement) {
@@ -145,6 +147,7 @@ export default function SignalementsSection() {
       x.id === s.id ? { ...x, status: "resolved" } : x
     ));
     setProcessingId(null);
+    onCountChange();
   }
 
   // ── Dérivés ─────────────────────────────────────────────────────────────────

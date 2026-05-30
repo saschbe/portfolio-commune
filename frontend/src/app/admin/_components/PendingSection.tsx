@@ -19,7 +19,7 @@ type Photo = {
 export default function PendingSection({
   onCountChange,
 }: {
-  onCountChange: (n: number) => void;
+  onCountChange: () => void;
 }) {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -29,10 +29,6 @@ export default function PendingSection({
   useEffect(() => {
     loadPending();
   }, []);
-
-  useEffect(() => {
-    onCountChange(photos.length);
-  }, [photos, onCountChange]);
 
   async function loadPending() {
     const { data, error } = await supabase
@@ -73,6 +69,7 @@ export default function PendingSection({
         meta: { photo_id: photo.id, title: photo.title, village: photo.village },
       });
       await loadPending();
+      onCountChange();
     } finally {
       setProcessingId(null);
     }
@@ -115,6 +112,7 @@ export default function PendingSection({
         meta: { photo_id: photo.id, title: photo.title, village: photo.village },
       });
       await loadPending();
+      onCountChange();
     } finally {
       setProcessingId(null);
     }
