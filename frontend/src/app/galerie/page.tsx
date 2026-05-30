@@ -4,6 +4,8 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Turnstile } from "@marsidev/react-turnstile";
+import type { TurnstileInstance } from "@marsidev/react-turnstile";
 import { supabase } from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
 
@@ -119,6 +121,8 @@ export default function GaleriePage() {
   const [reportEmail, setReportEmail]       = useState("");
   const [reportLoading, setReportLoading]   = useState(false);
   const [reportSuccess, setReportSuccess]   = useState(false);
+  const [reportTurnstileToken, setReportTurnstileToken] = useState<string | null>(null);
+  const reportTurnstileRef = useRef<TurnstileInstance>(null);
 
   // ── Auth ────────────────────────────────────────────────────────────────────
 
@@ -205,11 +209,24 @@ export default function GaleriePage() {
     setReportPrecision("");
     setReportEmail("");
     setReportSuccess(false);
+    setReportTurnstileToken(null);
   }
 
   async function handleReport() {
-    if (!reportingPhoto || !reportRaison) return;
+    if (!reportingPhoto || !reportRaison || !reportTurnstileToken) return;
     setReportLoading(true);
+
+    const verifyRes = await fetch("/api/verify-turnstile", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token: reportTurnstileToken }),
+    });
+    if (!verifyRes.ok) {
+      setReportLoading(false);
+      reportTurnstileRef.current?.reset();
+      setReportTurnstileToken(null);
+      return;
+    }
     const { data: insertData, error } = await supabase.from("signalements").insert({
       photo_id: reportingPhoto.id,
       raison: reportRaison,
@@ -855,7 +872,17 @@ export default function GaleriePage() {
                   </div>
                 </div>
 
-                <div className="flex gap-3 mt-6">
+                <div className="flex justify-center mt-4">
+                  <Turnstile
+                    ref={reportTurnstileRef}
+                    siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
+                    onSuccess={(token) => setReportTurnstileToken(token)}
+                    onExpire={() => setReportTurnstileToken(null)}
+                    options={{ theme: "dark", size: "normal" }}
+                  />
+                </div>
+
+                <div className="flex gap-3 mt-4">
                   <button
                     onClick={closeReport}
                     className="flex-1 py-3 rounded-full border border-white/10 text-white/40 text-xs uppercase tracking-[0.25em] hover:border-white/20 hover:text-white/60 transition-all duration-300"
@@ -864,7 +891,7 @@ export default function GaleriePage() {
                   </button>
                   <button
                     onClick={handleReport}
-                    disabled={!reportRaison || reportLoading}
+                    disabled={!reportRaison || reportLoading || !reportTurnstileToken}
                     className="flex-1 py-3 rounded-full border border-red-400/40 bg-red-400/10 text-red-400 text-xs uppercase tracking-[0.25em] hover:bg-red-400/20 hover:border-red-400/70 transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     {reportLoading ? "Envoi…" : "Envoyer"}

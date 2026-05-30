@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import Link from "next/link";
+import { Turnstile } from "@marsidev/react-turnstile";
+import type { TurnstileInstance } from "@marsidev/react-turnstile";
 import { supabase } from "@/lib/supabase";
 
 const inputClass =
@@ -16,6 +18,8 @@ export default function RegisterPage() {
   const [confirm, setConfirm] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const turnstileRef = useRef<TurnstileInstance>(null);
 
   async function handleSubmit(e: { preventDefault(): void }) {
     e.preventDefault();
@@ -30,8 +34,26 @@ export default function RegisterPage() {
       setStatus("error");
       return;
     }
+    if (!turnstileToken) {
+      setErrorMsg("Veuillez compléter la vérification anti-spam.");
+      setStatus("error");
+      return;
+    }
 
     setStatus("loading");
+
+    const verifyRes = await fetch("/api/verify-turnstile", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token: turnstileToken }),
+    });
+    if (!verifyRes.ok) {
+      setErrorMsg("Vérification anti-spam échouée. Réessayez.");
+      setStatus("error");
+      turnstileRef.current?.reset();
+      setTurnstileToken(null);
+      return;
+    }
     setErrorMsg("");
 
     const { data, error } = await supabase.auth.signUp({
@@ -186,9 +208,19 @@ export default function RegisterPage() {
             </p>
           )}
 
+          <div className="flex justify-center">
+            <Turnstile
+              ref={turnstileRef}
+              siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
+              onSuccess={(token) => { setTurnstileToken(token); if (status === "error") setStatus("idle"); }}
+              onExpire={() => { setTurnstileToken(null); }}
+              options={{ theme: "dark", size: "normal" }}
+            />
+          </div>
+
           <button
             type="submit"
-            disabled={status === "loading"}
+            disabled={status === "loading" || !turnstileToken}
             className="w-full py-4 rounded-full border border-cyan-300/40 bg-cyan-300/10 text-cyan-300 uppercase tracking-[0.3em] text-sm hover:bg-cyan-300/20 hover:border-cyan-300/70 transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed mt-2"
           >
             {status === "loading" ? "Inscription…" : "Créer un compte"}

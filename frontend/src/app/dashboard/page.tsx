@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import dynamic from "next/dynamic";
+import { Turnstile } from "@marsidev/react-turnstile";
+import type { TurnstileInstance } from "@marsidev/react-turnstile";
 import { supabase } from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
 
@@ -107,6 +109,8 @@ export default function DashboardPage() {
     "idle" | "loading" | "success" | "error"
   >("idle");
   const [submitError, setSubmitError] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const turnstileRef = useRef<TurnstileInstance>(null);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -151,8 +155,27 @@ export default function DashboardPage() {
     e.preventDefault();
     if (!form.file || !user) return;
 
+    if (!turnstileToken) {
+      setSubmitError("Veuillez compléter la vérification anti-spam.");
+      setSubmitStatus("error");
+      return;
+    }
+
     setSubmitStatus("loading");
     setSubmitError("");
+
+    const verifyRes = await fetch("/api/verify-turnstile", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token: turnstileToken }),
+    });
+    if (!verifyRes.ok) {
+      setSubmitError("Vérification anti-spam échouée. Réessayez.");
+      setSubmitStatus("error");
+      turnstileRef.current?.reset();
+      setTurnstileToken(null);
+      return;
+    }
 
     const ext = form.file.name.split(".").pop();
     const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
@@ -204,6 +227,7 @@ export default function DashboardPage() {
 
     setForm(defaultForm);
     setShowForm(false);
+    setTurnstileToken(null);
     await loadPhotos(user.id);
     setSubmitStatus("success");
   }
@@ -464,9 +488,19 @@ export default function DashboardPage() {
                     </p>
                   )}
 
+                  <div className="flex justify-center">
+                    <Turnstile
+                      ref={turnstileRef}
+                      siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
+                      onSuccess={(token) => { setTurnstileToken(token); if (submitStatus === "error") setSubmitStatus("idle"); }}
+                      onExpire={() => setTurnstileToken(null)}
+                      options={{ theme: "dark", size: "normal" }}
+                    />
+                  </div>
+
                   <button
                     type="submit"
-                    disabled={submitStatus === "loading"}
+                    disabled={submitStatus === "loading" || !turnstileToken}
                     className="px-8 py-3 rounded-full border border-cyan-300/40 bg-cyan-300/10 text-cyan-300 uppercase tracking-[0.25em] text-xs hover:bg-cyan-300/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     {submitStatus === "loading"
