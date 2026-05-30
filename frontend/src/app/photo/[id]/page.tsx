@@ -107,6 +107,12 @@ export default function PhotoPage() {
   const [reportToken, setReportToken]       = useState<string | null>(null);
   const reportTurnstileRef                  = useRef<TurnstileInstance>(null);
 
+  // Swipe navigation sur la photo (mobile)
+  const touchStartX = useRef(0);
+  const touchStartY = useRef(0);
+  const swipeHappenedRef = useRef(false);
+  const [swipeOffset, setSwipeOffset] = useState(0);
+
   // ── Keyboard shortcuts ────────────────────────────────────────────────────
 
   useEffect(() => {
@@ -334,24 +340,80 @@ export default function PhotoPage() {
       </header>
 
       {/* ── Main ──────────────────────────────────────────────────────── */}
-      <main className="pt-[70px]">
+      <main className="pt-[70px] pb-20 lg:pb-0">
         <div className="max-w-7xl mx-auto px-5 sm:px-8 py-8 lg:py-14">
           <div className="grid lg:grid-cols-[1fr_360px] gap-8 xl:gap-14 items-start">
 
             {/* ── Image + navigation ───────────────────────── */}
             <div className="space-y-4">
 
+              {/* Titre mobile (affiché avant la photo sur petits écrans) */}
+              <div className="lg:hidden space-y-4">
+                {photo.restored && (
+                  <span className="inline-block px-3 py-1 rounded-full border border-cyan-300/30 bg-cyan-300/10 text-cyan-300 text-[10px] uppercase tracking-[0.3em]">
+                    Photo restaurée
+                  </span>
+                )}
+                <h1 className="text-2xl font-light uppercase tracking-[0.15em] leading-snug">
+                  {photo.title}
+                </h1>
+                <div className="space-y-3">
+                  {photo.village && (
+                    <div className="flex items-baseline gap-4">
+                      <span className="text-[10px] uppercase tracking-[0.25em] text-white/30 w-14 shrink-0 pt-0.5">Village</span>
+                      <span className="text-sm text-white/70">{photo.village}</span>
+                    </div>
+                  )}
+                  {photo.year && (
+                    <div className="flex items-baseline gap-4">
+                      <span className="text-[10px] uppercase tracking-[0.25em] text-white/30 w-14 shrink-0 pt-0.5">Année</span>
+                      <span className="text-sm text-white/70">{photo.year}</span>
+                    </div>
+                  )}
+                  {photo.type && (
+                    <div className="flex items-baseline gap-4">
+                      <span className="text-[10px] uppercase tracking-[0.25em] text-white/30 w-14 shrink-0 pt-0.5">Type</span>
+                      <span className="text-sm text-white/70 capitalize">{photo.type}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
               {/* Photo principale */}
               <div
                 className="relative w-full rounded-2xl overflow-hidden border border-white/10 bg-white/[0.03] cursor-zoom-in group"
-                onClick={() => setZoomed(true)}
+                onClick={() => {
+                  if (swipeHappenedRef.current) { swipeHappenedRef.current = false; return; }
+                  setZoomed(true);
+                }}
+                onTouchStart={(e) => {
+                  touchStartX.current = e.touches[0].clientX;
+                  touchStartY.current = e.touches[0].clientY;
+                  swipeHappenedRef.current = false;
+                }}
+                onTouchMove={(e) => {
+                  const dx = e.touches[0].clientX - touchStartX.current;
+                  setSwipeOffset(dx * 0.15);
+                }}
+                onTouchEnd={(e) => {
+                  const dx = e.changedTouches[0].clientX - touchStartX.current;
+                  const dy = e.changedTouches[0].clientY - touchStartY.current;
+                  setSwipeOffset(0);
+                  if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
+                  if (Math.abs(dx) > 50 && Math.abs(dy) < 80) {
+                    swipeHappenedRef.current = true;
+                    if (dx < 0 && nextId) router.push(`/photo/${nextId}`);
+                    if (dx > 0 && prevId) router.push(`/photo/${prevId}`);
+                  }
+                }}
               >
                 <Image
                   src={photo.src}
                   alt={photo.title}
                   width={1400}
                   height={950}
-                  className="w-full h-auto object-cover transition-transform duration-700 group-hover:scale-[1.01]"
+                  className="w-full h-auto object-cover transition-transform duration-200 group-hover:scale-[1.01]"
+                  style={swipeOffset ? { transform: `translateX(${swipeOffset}px)` } : undefined}
                   priority
                 />
                 {/* Gradient + hint au survol */}
@@ -361,10 +423,54 @@ export default function PhotoPage() {
                     ⊕ Agrandir
                   </span>
                 </div>
+
+                {/* Compteur X / Y — mobile uniquement */}
+                {adjacentIds.length > 1 && currentIndex >= 0 && (
+                  <div className="absolute top-3 left-1/2 -translate-x-1/2 lg:hidden pointer-events-none">
+                    <span className="px-3 py-1 rounded-full bg-black/55 backdrop-blur-sm border border-white/10 text-white/50 text-[10px] uppercase tracking-[0.2em] tabular-nums">
+                      {currentIndex + 1} / {adjacentIds.length}
+                    </span>
+                  </div>
+                )}
+
+                {/* Points de navigation + chevrons — mobile uniquement */}
+                {adjacentIds.length > 1 && currentIndex >= 0 && (
+                  <div className="absolute bottom-3 left-0 right-0 flex items-center justify-center gap-1.5 lg:hidden pointer-events-none">
+                    <span className={`text-sm ${prevId ? "text-white/50" : "text-white/20"}`}>‹</span>
+                    {(() => {
+                      const total = adjacentIds.length;
+                      const maxDots = 5;
+                      const count = Math.min(maxDots, total);
+                      const start = total <= maxDots ? 0 : Math.max(0, Math.min(currentIndex - 2, total - maxDots));
+                      return Array.from({ length: count }, (_, i) => {
+                        const dotIdx = start + i;
+                        return (
+                          <span
+                            key={dotIdx}
+                            className={dotIdx === currentIndex
+                              ? "w-3.5 h-1.5 rounded-full bg-cyan-300"
+                              : "w-1.5 h-1.5 rounded-full bg-white/25"
+                            }
+                          />
+                        );
+                      });
+                    })()}
+                    <span className={`text-sm ${nextId ? "text-white/50" : "text-white/20"}`}>›</span>
+                  </div>
+                )}
+
+                {/* Bouton zoom permanent — mobile uniquement */}
+                <button
+                  className="absolute bottom-3 right-3 lg:hidden w-8 h-8 rounded-lg bg-black/60 backdrop-blur-sm border border-white/15 flex items-center justify-center text-white/60 text-sm z-10"
+                  onClick={(e) => { e.stopPropagation(); setZoomed(true); }}
+                  aria-label="Agrandir"
+                >
+                  ⊕
+                </button>
               </div>
 
               {/* Navigation précédente / suivante */}
-              <div className="flex items-center justify-between px-1">
+              <div className="hidden lg:flex items-center justify-between px-1">
                 {prevId ? (
                   <Link
                     href={`/photo/${prevId}`}
@@ -394,40 +500,43 @@ export default function PhotoPage() {
             {/* ── Panneau info ─────────────────────────────── */}
             <div className="lg:sticky lg:top-[86px] space-y-6">
 
-              {/* Badge restaurée */}
-              {photo.restored && (
-                <div>
-                  <span className="inline-block px-3 py-1 rounded-full border border-cyan-300/30 bg-cyan-300/10 text-cyan-300 text-[10px] uppercase tracking-[0.3em]">
-                    Photo restaurée
-                  </span>
+              {/* Badge + Titre + Métadonnées — masqués sur mobile (affichés avant la photo) */}
+              <div className="hidden lg:block space-y-6">
+                {/* Badge restaurée */}
+                {photo.restored && (
+                  <div>
+                    <span className="inline-block px-3 py-1 rounded-full border border-cyan-300/30 bg-cyan-300/10 text-cyan-300 text-[10px] uppercase tracking-[0.3em]">
+                      Photo restaurée
+                    </span>
+                  </div>
+                )}
+
+                {/* Titre */}
+                <h1 className="text-2xl lg:text-3xl font-light uppercase tracking-[0.15em] leading-snug">
+                  {photo.title}
+                </h1>
+
+                {/* Métadonnées */}
+                <div className="space-y-3">
+                  {photo.village && (
+                    <div className="flex items-baseline gap-4">
+                      <span className="text-[10px] uppercase tracking-[0.25em] text-white/30 w-14 shrink-0 pt-0.5">Village</span>
+                      <span className="text-sm text-white/70">{photo.village}</span>
+                    </div>
+                  )}
+                  {photo.year && (
+                    <div className="flex items-baseline gap-4">
+                      <span className="text-[10px] uppercase tracking-[0.25em] text-white/30 w-14 shrink-0 pt-0.5">Année</span>
+                      <span className="text-sm text-white/70">{photo.year}</span>
+                    </div>
+                  )}
+                  {photo.type && (
+                    <div className="flex items-baseline gap-4">
+                      <span className="text-[10px] uppercase tracking-[0.25em] text-white/30 w-14 shrink-0 pt-0.5">Type</span>
+                      <span className="text-sm text-white/70 capitalize">{photo.type}</span>
+                    </div>
+                  )}
                 </div>
-              )}
-
-              {/* Titre */}
-              <h1 className="text-2xl lg:text-3xl font-light uppercase tracking-[0.15em] leading-snug">
-                {photo.title}
-              </h1>
-
-              {/* Métadonnées */}
-              <div className="space-y-3">
-                {photo.village && (
-                  <div className="flex items-baseline gap-4">
-                    <span className="text-[10px] uppercase tracking-[0.25em] text-white/30 w-14 shrink-0 pt-0.5">Village</span>
-                    <span className="text-sm text-white/70">{photo.village}</span>
-                  </div>
-                )}
-                {photo.year && (
-                  <div className="flex items-baseline gap-4">
-                    <span className="text-[10px] uppercase tracking-[0.25em] text-white/30 w-14 shrink-0 pt-0.5">Année</span>
-                    <span className="text-sm text-white/70">{photo.year}</span>
-                  </div>
-                )}
-                {photo.type && (
-                  <div className="flex items-baseline gap-4">
-                    <span className="text-[10px] uppercase tracking-[0.25em] text-white/30 w-14 shrink-0 pt-0.5">Type</span>
-                    <span className="text-sm text-white/70 capitalize">{photo.type}</span>
-                  </div>
-                )}
               </div>
 
               {/* Description */}
@@ -450,7 +559,7 @@ export default function PhotoPage() {
                       Carte complète →
                     </Link>
                   </div>
-                  <div className="w-full h-52 rounded-xl overflow-hidden border border-white/10">
+                  <div className="w-full h-36 md:h-52 rounded-xl overflow-hidden border border-white/10">
                     <PhotoMap latitude={photo.latitude} longitude={photo.longitude} />
                   </div>
                 </div>
@@ -505,7 +614,8 @@ export default function PhotoPage() {
           </div>
           {/* Hint clavier */}
           <p className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/20 text-[10px] uppercase tracking-[0.25em]">
-            Échap pour fermer
+            <span className="hidden md:inline">Échap pour fermer</span>
+            <span className="md:hidden">Appuyer pour fermer</span>
           </p>
         </div>
       )}
@@ -517,7 +627,7 @@ export default function PhotoPage() {
           onClick={closeReport}
         >
           <div
-            className="bg-zinc-950 border border-white/10 rounded-3xl p-8 w-full max-w-md shadow-[0_0_60px_rgba(0,0,0,0.8)]"
+            className="bg-zinc-950 border border-white/10 rounded-3xl p-5 sm:p-8 w-full max-w-md shadow-[0_0_60px_rgba(0,0,0,0.8)] overflow-y-auto max-h-[90dvh]"
             onClick={(e) => e.stopPropagation()}
           >
             {reportSuccess ? (
@@ -565,7 +675,7 @@ export default function PhotoPage() {
                       onChange={(e) => setReportPrecision(e.target.value)}
                       rows={3}
                       placeholder="Décrivez le problème…"
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder-white/30 focus:outline-none focus:border-cyan-300/60 focus:bg-white/[0.07] transition-all duration-200 resize-none"
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder-white/30 focus:outline-none focus:border-cyan-300/60 focus:bg-white/[0.07] transition-all duration-200 resize-none max-h-24"
                     />
                   </div>
 
@@ -590,7 +700,7 @@ export default function PhotoPage() {
                   </p>
                 )}
 
-                <div className="flex justify-center mt-4">
+                <div className="overflow-hidden flex justify-center mt-4">
                   <Turnstile
                     ref={reportTurnstileRef}
                     siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
@@ -620,6 +730,35 @@ export default function PhotoPage() {
           </div>
         </div>
       )}
+
+      {/* ── Barre navigation mobile sticky ────────────────────────── */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 bg-black/80 backdrop-blur-xl border-t border-white/10 px-4 py-3 flex items-center justify-between lg:hidden">
+        {prevId ? (
+          <Link
+            href={`/photo/${prevId}`}
+            className="flex-1 flex items-center gap-2 h-11 text-white/50 text-xs uppercase tracking-[0.2em] hover:text-white/80 transition-colors duration-200"
+          >
+            <ChevronLeft /> Précédente
+          </Link>
+        ) : (
+          <div className="flex-1" />
+        )}
+        {currentIndex >= 0 && adjacentIds.length > 1 && (
+          <span className="text-white/30 text-xs uppercase tracking-[0.25em] tabular-nums px-4">
+            {currentIndex + 1} / {adjacentIds.length}
+          </span>
+        )}
+        {nextId ? (
+          <Link
+            href={`/photo/${nextId}`}
+            className="flex-1 flex items-center justify-end gap-2 h-11 text-white/50 text-xs uppercase tracking-[0.2em] hover:text-white/80 transition-colors duration-200"
+          >
+            Suivante <ChevronRight />
+          </Link>
+        ) : (
+          <div className="flex-1" />
+        )}
+      </div>
     </div>
   );
 }
