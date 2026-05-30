@@ -94,7 +94,6 @@ export default function GaleriePage() {
   const [user, setUser]               = useState<User | null>(null);
   const [isPrivileged, setIsPrivileged] = useState(false);
   const [userDropdown, setUserDropdown] = useState(false);
-  const userDropdownRef = useRef<HTMLDivElement>(null);
 
   // Données
   const [photos, setPhotos]         = useState<Photo[]>([]);
@@ -110,10 +109,6 @@ export default function GaleriePage() {
   const debounceRefs    = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const abortRefs       = useRef<Record<string, AbortController>>({});
 
-  // Visionneuse
-  const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
-  const [showInfo, setShowInfo]           = useState(true);
-
   // Signalement
   const [reportingPhoto, setReportingPhoto] = useState<Photo | null>(null);
   const [reportRaison, setReportRaison]     = useState("");
@@ -121,6 +116,7 @@ export default function GaleriePage() {
   const [reportEmail, setReportEmail]       = useState("");
   const [reportLoading, setReportLoading]   = useState(false);
   const [reportSuccess, setReportSuccess]   = useState(false);
+  const [reportError, setReportError]       = useState("");
   const [reportTurnstileToken, setReportTurnstileToken] = useState<string | null>(null);
   const reportTurnstileRef = useRef<TurnstileInstance>(null);
 
@@ -147,13 +143,13 @@ export default function GaleriePage() {
   async function handleLogout() {
     await supabase.auth.signOut();
     setUserDropdown(false);
-    router.refresh();
+    router.push("/");
   }
 
-  // Fermer user dropdown si clic extérieur
+  // Fermer user dropdown si clic extérieur (fonctionne pour desktop ET mobile)
   useEffect(() => {
     function onDown(e: MouseEvent) {
-      if (userDropdownRef.current && !userDropdownRef.current.contains(e.target as Node))
+      if (!(e.target as HTMLElement).closest("[data-user-dropdown]"))
         setUserDropdown(false);
     }
     document.addEventListener("mousedown", onDown);
@@ -182,13 +178,12 @@ export default function GaleriePage() {
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") {
         if (reportingPhoto) { closeReport(); return; }
-        if (selectedPhoto) { setSelectedPhoto(null); return; }
         if (panelOpen) setPanelOpen(false);
       }
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [selectedPhoto, panelOpen, reportingPhoto]);
+  }, [panelOpen, reportingPhoto]);
 
   function openReport(photo: Photo, e?: React.MouseEvent) {
     e?.stopPropagation();
@@ -209,6 +204,7 @@ export default function GaleriePage() {
     setReportPrecision("");
     setReportEmail("");
     setReportSuccess(false);
+    setReportError("");
     setReportTurnstileToken(null);
   }
 
@@ -227,11 +223,26 @@ export default function GaleriePage() {
       setReportTurnstileToken(null);
       return;
     }
+
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const { count: recentReports, error: countError } = await supabase
+      .from("signalements")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", user!.id)
+      .gte("created_at", oneHourAgo);
+
+    if (!countError && (recentReports ?? 0) >= 3) {
+      setReportError("Limite atteinte : vous ne pouvez pas envoyer plus de 3 signalements par heure.");
+      setReportLoading(false);
+      return;
+    }
+
     const { data: insertData, error } = await supabase.from("signalements").insert({
       photo_id: reportingPhoto.id,
       raison: reportRaison,
       details: reportPrecision.trim() || null,
       email: reportEmail.trim() || null,
+      user_id: user!.id,
     }).select();
     console.log("[signalement] insert →", { data: insertData, error, errorJson: JSON.stringify(error) });
     if (!error) {
@@ -420,7 +431,7 @@ export default function GaleriePage() {
 
             {/* Icône utilisateur */}
             {user ? (
-              <div className="relative" ref={userDropdownRef}>
+              <div className="relative" data-user-dropdown="">
                 <button
                   onClick={() => setUserDropdown(!userDropdown)}
                   aria-label="Mon compte"
@@ -460,7 +471,7 @@ export default function GaleriePage() {
               <FilterIcon />
             </button>
             {user ? (
-              <div className="relative" ref={userDropdownRef}>
+              <div className="relative" data-user-dropdown="">
                 <button onClick={() => setUserDropdown(!userDropdown)} aria-label="Mon compte"
                   className={`transition-colors duration-300 ${userDropdown ? "text-cyan-300" : "text-white/60 hover:text-cyan-300"}`}>
                   <UserIcon />
@@ -547,9 +558,9 @@ export default function GaleriePage() {
         ) : (
           <div className="columns-2 md:columns-3 xl:columns-4 gap-x-3">
             {filteredPhotos.map((photo, index) => (
-              <div key={photo.id}
-                onClick={() => { setSelectedPhoto(photo); setShowInfo(true); }}
-                className="break-inside-avoid mb-3 group relative overflow-hidden rounded-3xl border border-white/10 bg-white/3 backdrop-blur-md cursor-pointer transition-all duration-700 hover:-translate-y-1 hover:border-cyan-300/30 hover:bg-white/5 hover:shadow-[0_20px_80px_rgba(34,211,238,0.10)]"
+              <Link key={photo.id}
+                href={`/photo/${photo.id}`}
+                className="block break-inside-avoid mb-3 group relative overflow-hidden rounded-3xl border border-white/10 bg-white/3 backdrop-blur-md transition-all duration-700 hover:-translate-y-1 hover:border-cyan-300/30 hover:bg-white/5 hover:shadow-[0_20px_80px_rgba(34,211,238,0.10)]"
               >
                 <div className={`relative ${ASPECTS[index % ASPECTS.length]}`}>
                   <Image
@@ -574,13 +585,13 @@ export default function GaleriePage() {
                   </div>
                 )}
                 <button
-                  onClick={(e) => openReport(photo, e)}
+                  onClick={(e) => { e.preventDefault(); openReport(photo, e); }}
                   aria-label="Signaler cette photo"
                   className="absolute top-3 left-3 opacity-0 group-hover:opacity-100 transition-all duration-300 p-1.5 rounded-full bg-black/50 backdrop-blur-sm text-white/40 hover:text-red-400 hover:bg-black/70"
                 >
                   <FlagIcon />
                 </button>
-              </div>
+              </Link>
             ))}
           </div>
         )}
@@ -722,96 +733,6 @@ export default function GaleriePage() {
         )}
       </div>
 
-      {/* ── Visionneuse plein écran ───────────────────────────────────────── */}
-      {selectedPhoto && (
-        <div className="fixed inset-0 z-100 bg-black/95 backdrop-blur-xl">
-          <div className="absolute inset-0" onClick={() => setSelectedPhoto(null)} />
-
-          <div className="fixed inset-0 flex items-center justify-center bg-linear-to-b from-black via-zinc-950 to-black">
-            <button
-              onClick={(e) => { e.stopPropagation(); setSelectedPhoto(null); }}
-              className="absolute top-6 right-6 z-110 text-white/60 text-4xl hover:text-cyan-300 transition-all duration-300"
-            >
-              ✕
-            </button>
-
-            {/* Navigation */}
-            {filteredPhotos.length > 1 && (
-              <>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    const idx = filteredPhotos.findIndex(p => p.id === selectedPhoto.id);
-                    setSelectedPhoto(filteredPhotos[(idx - 1 + filteredPhotos.length) % filteredPhotos.length]);
-                  }}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 z-110 text-white/40 hover:text-white text-3xl px-2 transition-all"
-                >‹</button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    const idx = filteredPhotos.findIndex(p => p.id === selectedPhoto.id);
-                    setSelectedPhoto(filteredPhotos[(idx + 1) % filteredPhotos.length]);
-                  }}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 z-110 text-white/40 hover:text-white text-3xl px-2 transition-all"
-                >›</button>
-              </>
-            )}
-
-            <div
-              className="relative w-screen h-dvh md:max-w-6xl md:h-[85vh]"
-              onClick={(e) => { e.stopPropagation(); setShowInfo(!showInfo); }}
-            >
-              <Image src={selectedPhoto.src} alt={selectedPhoto.title} fill
-                sizes="100vw" className="object-contain select-none animate-[fadeIn_0.6s_ease]" />
-            </div>
-
-            <div className="absolute top-6 left-6 z-110 text-white/40 text-[10px] uppercase tracking-[0.35em]">
-              {String(filteredPhotos.findIndex(p => p.id === selectedPhoto.id) + 1).padStart(2, "0")}
-              &nbsp;/&nbsp;
-              {String(filteredPhotos.length).padStart(2, "0")}
-            </div>
-
-            {showInfo && (
-              <div className="absolute bottom-6 left-6 md:bottom-10 md:left-10 max-w-xl bg-black/30 backdrop-blur-2xl border border-white/10 p-6 md:p-8 rounded-3xl shadow-[0_0_60px_rgba(0,0,0,0.5)] transition-all duration-700">
-                <h3 className="text-2xl md:text-4xl font-light uppercase tracking-[0.14em] text-white leading-tight">
-                  {selectedPhoto.title}
-                </h3>
-                <div className="mt-2 text-cyan-300 uppercase tracking-[0.2em] text-xs">
-                  {selectedPhoto.village}
-                </div>
-                {selectedPhoto.description && (
-                  <p className="mt-3 text-white/50 leading-relaxed text-sm max-w-prose">
-                    {selectedPhoto.description}
-                  </p>
-                )}
-                <div className="mt-5 flex flex-wrap gap-2">
-                  {selectedPhoto.year && (
-                    <span className="px-3 py-1.5 bg-white/10 border border-white/10 text-[10px] uppercase tracking-[0.2em]">
-                      {selectedPhoto.year}
-                    </span>
-                  )}
-                  {selectedPhoto.type && (
-                    <span className="px-3 py-1.5 bg-white/10 border border-white/10 text-[10px] uppercase tracking-[0.2em]">
-                      {selectedPhoto.type}
-                    </span>
-                  )}
-                  {selectedPhoto.restored && (
-                    <span className="px-3 py-1.5 bg-cyan-300 text-black text-[10px] uppercase tracking-[0.2em]">
-                      Restaurée
-                    </span>
-                  )}
-                </div>
-                <button
-                  onClick={(e) => { e.stopPropagation(); openReport(selectedPhoto); }}
-                  className="mt-5 flex items-center gap-1.5 text-[10px] uppercase tracking-[0.2em] text-white/25 hover:text-red-400/70 transition-colors duration-300"
-                >
-                  <FlagIcon /> Signaler
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
       {/* ── Modale signalement ──────────────────────────────────────────── */}
       {reportingPhoto && (
         <div className="fixed inset-0 z-200 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
@@ -872,11 +793,17 @@ export default function GaleriePage() {
                   </div>
                 </div>
 
+                {reportError && (
+                  <p className="mt-4 text-red-400 text-xs uppercase tracking-[0.2em] text-center">
+                    {reportError}
+                  </p>
+                )}
+
                 <div className="flex justify-center mt-4">
                   <Turnstile
                     ref={reportTurnstileRef}
                     siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
-                    onSuccess={(token) => setReportTurnstileToken(token)}
+                    onSuccess={(token) => { setReportTurnstileToken(token); setReportError(""); }}
                     onExpire={() => setReportTurnstileToken(null)}
                     options={{ theme: "dark", size: "normal" }}
                   />

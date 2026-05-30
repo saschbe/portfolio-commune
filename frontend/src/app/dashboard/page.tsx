@@ -177,6 +177,19 @@ export default function DashboardPage() {
       return;
     }
 
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const { count: recentCount } = await supabase
+      .from("photos")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .gte("created_at", oneHourAgo);
+
+    if ((recentCount ?? 0) >= 5) {
+      setSubmitError("Limite atteinte : vous ne pouvez pas soumettre plus de 5 photos par heure.");
+      setSubmitStatus("error");
+      return;
+    }
+
     const ext = form.file.name.split(".").pop();
     const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
 
