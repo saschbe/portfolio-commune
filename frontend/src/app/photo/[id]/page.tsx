@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useParams } from "next/navigation";
@@ -41,6 +41,9 @@ const RAISONS: { value: string; label: string }[] = [
   { value: "autre",                    label: "Autre" },
 ];
 
+const SWIPE_MIN_X = 80;
+const SWIPE_MAX_Y = 60;
+
 // ── Icons ─────────────────────────────────────────────────────────────────────
 
 function FlagIcon() {
@@ -78,14 +81,21 @@ export default function PhotoPage() {
   const id = params.id as string;
   const router = useRouter();
 
-  // Data
-  const [photo, setPhoto]           = useState<Photo | null>(null);
-  const [adjacentIds, setAdjacentIds] = useState<string[]>([]);
-  const [loading, setLoading]       = useState(true);
-  const [notFound, setNotFound]     = useState(false);
+  // currentId drives what's displayed — updated via swipe without page reload
+  const [currentId, setCurrentId] = useState(id);
 
-  // Navigation prev/next (déclarées tôt pour être disponibles dans les useEffect)
-  const currentIndex = adjacentIds.indexOf(id);
+  // Data
+  const [photo, setPhoto]             = useState<Photo | null>(null);
+  const [adjacentIds, setAdjacentIds] = useState<string[]>([]);
+  const [loading, setLoading]         = useState(true);
+  const [notFound, setNotFound]       = useState(false);
+  const preloadCache                  = useRef<Map<string, Photo>>(new Map());
+
+  // Slide animation direction (null = enter animation, 'left'/'right' = exit)
+  const [slideDir, setSlideDir] = useState<"left" | "right" | null>(null);
+
+  // Derived navigation
+  const currentIndex = adjacentIds.indexOf(currentId);
   const prevId = currentIndex > 0 ? adjacentIds[currentIndex - 1] : null;
   const nextId = currentIndex < adjacentIds.length - 1 ? adjacentIds[currentIndex + 1] : null;
 
@@ -97,32 +107,48 @@ export default function PhotoPage() {
   const overlayRef = useRef<HTMLDivElement>(null);
 
   // Report modal
-  const [reportOpen, setReportOpen]         = useState(false);
-  const [reportRaison, setReportRaison]     = useState("");
+  const [reportOpen, setReportOpen]           = useState(false);
+  const [reportRaison, setReportRaison]       = useState("");
   const [reportPrecision, setReportPrecision] = useState("");
-  const [reportEmail, setReportEmail]       = useState("");
-  const [reportLoading, setReportLoading]   = useState(false);
-  const [reportSuccess, setReportSuccess]   = useState(false);
-  const [reportError, setReportError]       = useState("");
-  const [reportToken, setReportToken]       = useState<string | null>(null);
-  const reportTurnstileRef                  = useRef<TurnstileInstance>(null);
+  const [reportEmail, setReportEmail]         = useState("");
+  const [reportLoading, setReportLoading]     = useState(false);
+  const [reportSuccess, setReportSuccess]     = useState(false);
+  const [reportError, setReportError]         = useState("");
+  const [reportToken, setReportToken]         = useState<string | null>(null);
+  const reportTurnstileRef                    = useRef<TurnstileInstance>(null);
 
-  // Swipe navigation sur la photo (mobile)
-  const touchStartX = useRef(0);
-  const touchStartY = useRef(0);
-  const swipeHappenedRef = useRef(false);
-  const [swipeOffset, setSwipeOffset] = useState(0);
+  // Swipe touch tracking (mobile)
+  const touchStartX   = useRef(0);
+  const touchStartY   = useRef(0);
+  const swipeHappened = useRef(false);
 
-  // ── Keyboard shortcuts ────────────────────────────────────────────────────
+  // ── Navigate without page reload (mobile swipe) ───────────────────────────
+
+  const navigateTo = useCallback((targetId: string, dir: "left" | "right") => {
+    setSlideDir(dir);
+    setTimeout(() => {
+      setCurrentId(targetId);
+      router.replace(`/photo/${targetId}`, { scroll: false });
+      setSlideDir(null);
+    }, 200);
+  }, [router]);
+
+  // ── Sync currentId when URL id changes (Link clicks, browser back) ────────
+
+  useEffect(() => {
+    setCurrentId(id);
+  }, [id]);
+
+  // ── Keyboard navigation (desktop — keeps router.push) ─────────────────────
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") {
-        if (zoomed)      { setZoomed(false); return; }
-        if (reportOpen)  { closeReport();    return; }
+        if (zoomed)     { setZoomed(false); return; }
+        if (reportOpen) { closeReport();    return; }
       }
       if (!zoomed && !reportOpen) {
-        const idx = adjacentIds.indexOf(id);
+        const idx = adjacentIds.indexOf(currentId);
         if (e.key === "ArrowLeft"  && idx > 0)
           router.push(`/photo/${adjacentIds[idx - 1]}`);
         if (e.key === "ArrowRight" && idx < adjacentIds.length - 1)
@@ -131,9 +157,9 @@ export default function PhotoPage() {
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [zoomed, reportOpen, adjacentIds, id, router]);
+  }, [zoomed, reportOpen, adjacentIds, currentId, router]);
 
-  // ── Swipe navigation dans la lightbox ────────────────────────────────────
+  // ── Swipe in zoom lightbox (unchanged) ───────────────────────────────────
 
   useEffect(() => {
     if (!zoomed) return;
@@ -167,33 +193,61 @@ export default function PhotoPage() {
     };
   }, [zoomed, nextId, prevId, router]);
 
-  // ── Data loading ──────────────────────────────────────────────────────────
+  // ── Load adjacentIds once ─────────────────────────────────────────────────
+
+  useEffect(() => {
+    supabase
+      .from("photos")
+      .select("id")
+      .or("status.eq.approved,status.is.null")
+      .order("created_at", { ascending: false })
+      .then(({ data }) => {
+        setAdjacentIds((data ?? []).map((p: { id: string }) => p.id));
+      });
+  }, []);
+
+  // ── Load photo data (cache-first) ─────────────────────────────────────────
+  // setLoading(true) intentionally omitted here — the initial useState(true) covers
+  // the first load. After that, stale photo stays visible during swipe transitions.
+
+  useEffect(() => {
+    const cached = preloadCache.current.get(currentId);
+    if (cached) {
+      setPhoto(cached);
+      setNotFound(false);
+      setLoading(false);
+      return;
+    }
+
+    setNotFound(false);
+
+    supabase.from("photos").select("*").eq("id", currentId).single().then(({ data }) => {
+      if (!data) { setNotFound(true); setLoading(false); return; }
+      preloadCache.current.set(currentId, data as Photo);
+      setPhoto(data as Photo);
+      setLoading(false);
+    });
+  }, [currentId]);
+
+  // ── Preload adjacent photos ───────────────────────────────────────────────
+
+  useEffect(() => {
+    if (adjacentIds.length === 0) return;
+    const idx = adjacentIds.indexOf(currentId);
+    [adjacentIds[idx - 1], adjacentIds[idx + 1]]
+      .filter((pid): pid is string => Boolean(pid) && !preloadCache.current.has(pid))
+      .forEach(pid => {
+        supabase.from("photos").select("*").eq("id", pid).single().then(({ data }) => {
+          if (data) preloadCache.current.set(pid, data as Photo);
+        });
+      });
+  }, [currentId, adjacentIds]);
+
+  // ── Auth ──────────────────────────────────────────────────────────────────
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUser(data.user));
   }, []);
-
-  useEffect(() => {
-    async function load() {
-      setLoading(true);
-      setNotFound(false);
-
-      const [{ data: photoData }, { data: allData }] = await Promise.all([
-        supabase.from("photos").select("*").eq("id", id).single(),
-        supabase
-          .from("photos")
-          .select("id")
-          .or("status.eq.approved,status.is.null")
-          .order("created_at", { ascending: false }),
-      ]);
-
-      if (!photoData) { setNotFound(true); setLoading(false); return; }
-      setPhoto(photoData as Photo);
-      setAdjacentIds((allData ?? []).map((p: { id: string }) => p.id));
-      setLoading(false);
-    }
-    load();
-  }, [id]);
 
   // ── Report handlers ───────────────────────────────────────────────────────
 
@@ -208,7 +262,7 @@ export default function PhotoPage() {
   }
 
   function openReport() {
-    if (!user) { router.push(`/login?next=/photo/${id}`); return; }
+    if (!user) { router.push(`/login?next=/photo/${currentId}`); return; }
     setReportOpen(true);
   }
 
@@ -283,6 +337,12 @@ export default function PhotoPage() {
 
   // ── Render ────────────────────────────────────────────────────────────────
 
+  const animClass = slideDir === "left"
+    ? "animate-slideOutLeft"
+    : slideDir === "right"
+    ? "animate-slideOutRight"
+    : "animate-slideIn";
+
   return (
     <div className="min-h-screen bg-black text-white">
 
@@ -301,7 +361,6 @@ export default function PhotoPage() {
           </Link>
 
           <div className="flex items-center gap-6">
-            {/* Navigation rapide dans le header */}
             {(prevId || nextId) && (
               <div className="hidden sm:flex items-center gap-1">
                 <Link
@@ -344,210 +403,207 @@ export default function PhotoPage() {
         <div className="max-w-7xl mx-auto px-5 sm:px-8 py-8 lg:py-14">
           <div className="grid lg:grid-cols-[1fr_360px] gap-8 xl:gap-14 items-start">
 
-            {/* ── Image + navigation ───────────────────────── */}
+            {/* ── Colonne gauche — photo + titre mobile ────────── */}
             <div className="space-y-4">
+              <div className={animClass}>
 
-              {/* Titre mobile (affiché avant la photo sur petits écrans) */}
-              <div className="lg:hidden space-y-4">
-                {photo.restored && (
-                  <span className="inline-block px-3 py-1 rounded-full border border-cyan-300/30 bg-cyan-300/10 text-cyan-300 text-[10px] uppercase tracking-[0.3em]">
-                    Photo restaurée
-                  </span>
-                )}
-                <h1 className="text-2xl font-light uppercase tracking-[0.15em] leading-snug">
-                  {photo.title}
-                </h1>
-                <div className="space-y-3">
-                  {photo.village && (
-                    <div className="flex items-baseline gap-4">
-                      <span className="text-[10px] uppercase tracking-[0.25em] text-white/30 w-14 shrink-0 pt-0.5">Village</span>
-                      <span className="text-sm text-white/70">{photo.village}</span>
-                    </div>
-                  )}
-                  {photo.year && (
-                    <div className="flex items-baseline gap-4">
-                      <span className="text-[10px] uppercase tracking-[0.25em] text-white/30 w-14 shrink-0 pt-0.5">Année</span>
-                      <span className="text-sm text-white/70">{photo.year}</span>
-                    </div>
-                  )}
-                  {photo.type && (
-                    <div className="flex items-baseline gap-4">
-                      <span className="text-[10px] uppercase tracking-[0.25em] text-white/30 w-14 shrink-0 pt-0.5">Type</span>
-                      <span className="text-sm text-white/70 capitalize">{photo.type}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Photo principale */}
-              <div
-                className="relative w-full rounded-2xl overflow-hidden border border-white/10 bg-white/[0.03] cursor-zoom-in group"
-                onClick={() => {
-                  if (swipeHappenedRef.current) { swipeHappenedRef.current = false; return; }
-                  setZoomed(true);
-                }}
-                onTouchStart={(e) => {
-                  touchStartX.current = e.touches[0].clientX;
-                  touchStartY.current = e.touches[0].clientY;
-                  swipeHappenedRef.current = false;
-                }}
-                onTouchMove={(e) => {
-                  const dx = e.touches[0].clientX - touchStartX.current;
-                  setSwipeOffset(dx * 0.15);
-                }}
-                onTouchEnd={(e) => {
-                  const dx = e.changedTouches[0].clientX - touchStartX.current;
-                  const dy = e.changedTouches[0].clientY - touchStartY.current;
-                  setSwipeOffset(0);
-                  if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
-                  if (Math.abs(dx) > 50 && Math.abs(dy) < 80) {
-                    swipeHappenedRef.current = true;
-                    if (dx < 0 && nextId) router.push(`/photo/${nextId}`);
-                    if (dx > 0 && prevId) router.push(`/photo/${prevId}`);
-                  }
-                }}
-              >
-                <Image
-                  src={photo.src}
-                  alt={photo.title}
-                  width={1400}
-                  height={950}
-                  className="w-full h-auto object-cover transition-transform duration-200 group-hover:scale-[1.01]"
-                  style={swipeOffset ? { transform: `translateX(${swipeOffset}px)` } : undefined}
-                  priority
-                />
-                {/* Gradient + hint au survol */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
-                <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
-                  <span className="px-3 py-1.5 bg-black/70 backdrop-blur-sm rounded-lg border border-white/10 text-white/55 text-[10px] uppercase tracking-[0.2em]">
-                    ⊕ Agrandir
-                  </span>
-                </div>
-
-                {/* Compteur X / Y — mobile uniquement */}
-                {adjacentIds.length > 1 && currentIndex >= 0 && (
-                  <div className="absolute top-3 left-1/2 -translate-x-1/2 lg:hidden pointer-events-none">
-                    <span className="px-3 py-1 rounded-full bg-black/55 backdrop-blur-sm border border-white/10 text-white/50 text-[10px] uppercase tracking-[0.2em] tabular-nums">
-                      {currentIndex + 1} / {adjacentIds.length}
-                    </span>
-                  </div>
-                )}
-
-                {/* Points de navigation + chevrons — mobile uniquement */}
-                {adjacentIds.length > 1 && currentIndex >= 0 && (
-                  <div className="absolute bottom-3 left-0 right-0 flex items-center justify-center gap-1.5 lg:hidden pointer-events-none">
-                    <span className={`text-sm ${prevId ? "text-white/50" : "text-white/20"}`}>‹</span>
-                    {(() => {
-                      const total = adjacentIds.length;
-                      const maxDots = 5;
-                      const count = Math.min(maxDots, total);
-                      const start = total <= maxDots ? 0 : Math.max(0, Math.min(currentIndex - 2, total - maxDots));
-                      return Array.from({ length: count }, (_, i) => {
-                        const dotIdx = start + i;
-                        return (
-                          <span
-                            key={dotIdx}
-                            className={dotIdx === currentIndex
-                              ? "w-3.5 h-1.5 rounded-full bg-cyan-300"
-                              : "w-1.5 h-1.5 rounded-full bg-white/25"
-                            }
-                          />
-                        );
-                      });
-                    })()}
-                    <span className={`text-sm ${nextId ? "text-white/50" : "text-white/20"}`}>›</span>
-                  </div>
-                )}
-
-                {/* Bouton zoom permanent — mobile uniquement */}
-                <button
-                  className="absolute bottom-3 right-3 lg:hidden w-8 h-8 rounded-lg bg-black/60 backdrop-blur-sm border border-white/15 flex items-center justify-center text-white/60 text-sm z-10"
-                  onClick={(e) => { e.stopPropagation(); setZoomed(true); }}
-                  aria-label="Agrandir"
-                >
-                  ⊕
-                </button>
-              </div>
-
-              {/* Navigation précédente / suivante */}
-              <div className="hidden lg:flex items-center justify-between px-1">
-                {prevId ? (
-                  <Link
-                    href={`/photo/${prevId}`}
-                    className="flex items-center gap-2 px-4 py-2 rounded-full border border-white/10 text-white/40 text-xs uppercase tracking-[0.2em] hover:border-white/20 hover:text-white/70 transition-all duration-300"
-                  >
-                    <ChevronLeft /> Précédente
-                  </Link>
-                ) : <div />}
-
-                {currentIndex >= 0 && adjacentIds.length > 1 && (
-                  <span className="text-white/20 text-[10px] uppercase tracking-[0.25em] tabular-nums">
-                    {currentIndex + 1} <span className="text-white/10 mx-1">/</span> {adjacentIds.length}
-                  </span>
-                )}
-
-                {nextId ? (
-                  <Link
-                    href={`/photo/${nextId}`}
-                    className="flex items-center gap-2 px-4 py-2 rounded-full border border-white/10 text-white/40 text-xs uppercase tracking-[0.2em] hover:border-white/20 hover:text-white/70 transition-all duration-300"
-                  >
-                    Suivante <ChevronRight />
-                  </Link>
-                ) : <div />}
-              </div>
-            </div>
-
-            {/* ── Panneau info ─────────────────────────────── */}
-            <div className="lg:sticky lg:top-[86px] space-y-6">
-
-              {/* Badge + Titre + Métadonnées — masqués sur mobile (affichés avant la photo) */}
-              <div className="hidden lg:block space-y-6">
-                {/* Badge restaurée */}
-                {photo.restored && (
-                  <div>
+                {/* Titre mobile (affiché avant la photo) */}
+                <div className="lg:hidden space-y-4 mb-4">
+                  {photo.restored && (
                     <span className="inline-block px-3 py-1 rounded-full border border-cyan-300/30 bg-cyan-300/10 text-cyan-300 text-[10px] uppercase tracking-[0.3em]">
                       Photo restaurée
                     </span>
+                  )}
+                  <h1 className="text-2xl font-light uppercase tracking-[0.15em] leading-snug">
+                    {photo.title}
+                  </h1>
+                  <div className="space-y-3">
+                    {photo.village && (
+                      <div className="flex items-baseline gap-4">
+                        <span className="text-[10px] uppercase tracking-[0.25em] text-white/30 w-14 shrink-0 pt-0.5">Village</span>
+                        <span className="text-sm text-white/70">{photo.village}</span>
+                      </div>
+                    )}
+                    {photo.year && (
+                      <div className="flex items-baseline gap-4">
+                        <span className="text-[10px] uppercase tracking-[0.25em] text-white/30 w-14 shrink-0 pt-0.5">Année</span>
+                        <span className="text-sm text-white/70">{photo.year}</span>
+                      </div>
+                    )}
+                    {photo.type && (
+                      <div className="flex items-baseline gap-4">
+                        <span className="text-[10px] uppercase tracking-[0.25em] text-white/30 w-14 shrink-0 pt-0.5">Type</span>
+                        <span className="text-sm text-white/70 capitalize">{photo.type}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Photo principale */}
+                <div
+                  className="relative w-full rounded-2xl overflow-hidden border border-white/10 bg-white/[0.03] cursor-zoom-in group"
+                  onClick={() => {
+                    if (swipeHappened.current) { swipeHappened.current = false; return; }
+                    setZoomed(true);
+                  }}
+                  onTouchStart={(e) => {
+                    touchStartX.current = e.touches[0].clientX;
+                    touchStartY.current = e.touches[0].clientY;
+                    swipeHappened.current = false;
+                  }}
+                  onTouchEnd={(e) => {
+                    const dx = e.changedTouches[0].clientX - touchStartX.current;
+                    const dy = e.changedTouches[0].clientY - touchStartY.current;
+                    if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
+                    if (Math.abs(dx) >= SWIPE_MIN_X && Math.abs(dy) < SWIPE_MAX_Y) {
+                      swipeHappened.current = true;
+                      if (dx < 0 && nextId) navigateTo(nextId, "left");
+                      if (dx > 0 && prevId) navigateTo(prevId, "right");
+                    }
+                  }}
+                >
+                  <Image
+                    src={photo.src}
+                    alt={photo.title}
+                    width={1400}
+                    height={950}
+                    className="w-full h-auto object-cover transition-transform duration-700 group-hover:scale-[1.01]"
+                    priority
+                  />
+                  {/* Gradient + hint au survol */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+                  <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
+                    <span className="px-3 py-1.5 bg-black/70 backdrop-blur-sm rounded-lg border border-white/10 text-white/55 text-[10px] uppercase tracking-[0.2em]">
+                      ⊕ Agrandir
+                    </span>
+                  </div>
+
+                  {/* Compteur X / Y — mobile uniquement */}
+                  {adjacentIds.length > 1 && currentIndex >= 0 && (
+                    <div className="absolute top-3 left-1/2 -translate-x-1/2 lg:hidden pointer-events-none">
+                      <span className="px-3 py-1 rounded-full bg-black/55 backdrop-blur-sm border border-white/10 text-white/50 text-[10px] uppercase tracking-[0.2em] tabular-nums">
+                        {currentIndex + 1} / {adjacentIds.length}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Points de navigation + chevrons — mobile uniquement */}
+                  {adjacentIds.length > 1 && currentIndex >= 0 && (
+                    <div className="absolute bottom-3 left-0 right-0 flex items-center justify-center gap-1.5 lg:hidden pointer-events-none">
+                      <span className={`text-sm ${prevId ? "text-white/50" : "text-white/20"}`}>‹</span>
+                      {(() => {
+                        const total = adjacentIds.length;
+                        const maxDots = 5;
+                        const count = Math.min(maxDots, total);
+                        const start = total <= maxDots ? 0 : Math.max(0, Math.min(currentIndex - 2, total - maxDots));
+                        return Array.from({ length: count }, (_, i) => {
+                          const dotIdx = start + i;
+                          return (
+                            <span
+                              key={dotIdx}
+                              className={dotIdx === currentIndex
+                                ? "w-3.5 h-1.5 rounded-full bg-cyan-300"
+                                : "w-1.5 h-1.5 rounded-full bg-white/25"
+                              }
+                            />
+                          );
+                        });
+                      })()}
+                      <span className={`text-sm ${nextId ? "text-white/50" : "text-white/20"}`}>›</span>
+                    </div>
+                  )}
+
+                  {/* Bouton zoom permanent — mobile uniquement */}
+                  <button
+                    className="absolute bottom-3 right-3 lg:hidden w-8 h-8 rounded-lg bg-black/60 backdrop-blur-sm border border-white/15 flex items-center justify-center text-white/60 text-sm z-10"
+                    onClick={(e) => { e.stopPropagation(); setZoomed(true); }}
+                    aria-label="Agrandir"
+                  >
+                    ⊕
+                  </button>
+                </div>
+
+                {/* Navigation précédente / suivante — desktop uniquement */}
+                <div className="hidden lg:flex items-center justify-between px-1">
+                  {prevId ? (
+                    <Link
+                      href={`/photo/${prevId}`}
+                      className="flex items-center gap-2 px-4 py-2 rounded-full border border-white/10 text-white/40 text-xs uppercase tracking-[0.2em] hover:border-white/20 hover:text-white/70 transition-all duration-300"
+                    >
+                      <ChevronLeft /> Précédente
+                    </Link>
+                  ) : <div />}
+
+                  {currentIndex >= 0 && adjacentIds.length > 1 && (
+                    <span className="text-white/20 text-[10px] uppercase tracking-[0.25em] tabular-nums">
+                      {currentIndex + 1} <span className="text-white/10 mx-1">/</span> {adjacentIds.length}
+                    </span>
+                  )}
+
+                  {nextId ? (
+                    <Link
+                      href={`/photo/${nextId}`}
+                      className="flex items-center gap-2 px-4 py-2 rounded-full border border-white/10 text-white/40 text-xs uppercase tracking-[0.2em] hover:border-white/20 hover:text-white/70 transition-all duration-300"
+                    >
+                      Suivante <ChevronRight />
+                    </Link>
+                  ) : <div />}
+                </div>
+
+              </div>
+            </div>
+
+            {/* ── Panneau info ─────────────────────────────────── */}
+            <div className="lg:sticky lg:top-[86px] space-y-6">
+
+              {/* Animé : titre desktop + métadonnées + description */}
+              <div className={animClass}>
+
+                {/* Badge + Titre + Métadonnées — masqués sur mobile */}
+                <div className="hidden lg:block space-y-6">
+                  {photo.restored && (
+                    <div>
+                      <span className="inline-block px-3 py-1 rounded-full border border-cyan-300/30 bg-cyan-300/10 text-cyan-300 text-[10px] uppercase tracking-[0.3em]">
+                        Photo restaurée
+                      </span>
+                    </div>
+                  )}
+                  <h1 className="text-2xl lg:text-3xl font-light uppercase tracking-[0.15em] leading-snug">
+                    {photo.title}
+                  </h1>
+                  <div className="space-y-3">
+                    {photo.village && (
+                      <div className="flex items-baseline gap-4">
+                        <span className="text-[10px] uppercase tracking-[0.25em] text-white/30 w-14 shrink-0 pt-0.5">Village</span>
+                        <span className="text-sm text-white/70">{photo.village}</span>
+                      </div>
+                    )}
+                    {photo.year && (
+                      <div className="flex items-baseline gap-4">
+                        <span className="text-[10px] uppercase tracking-[0.25em] text-white/30 w-14 shrink-0 pt-0.5">Année</span>
+                        <span className="text-sm text-white/70">{photo.year}</span>
+                      </div>
+                    )}
+                    {photo.type && (
+                      <div className="flex items-baseline gap-4">
+                        <span className="text-[10px] uppercase tracking-[0.25em] text-white/30 w-14 shrink-0 pt-0.5">Type</span>
+                        <span className="text-sm text-white/70 capitalize">{photo.type}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Description */}
+                {photo.description && (
+                  <div className="border-t border-white/5 pt-5">
+                    <p className="text-[10px] uppercase tracking-[0.25em] text-white/30 mb-3">Description</p>
+                    <p className="text-sm text-white/60 leading-relaxed">{photo.description}</p>
                   </div>
                 )}
 
-                {/* Titre */}
-                <h1 className="text-2xl lg:text-3xl font-light uppercase tracking-[0.15em] leading-snug">
-                  {photo.title}
-                </h1>
-
-                {/* Métadonnées */}
-                <div className="space-y-3">
-                  {photo.village && (
-                    <div className="flex items-baseline gap-4">
-                      <span className="text-[10px] uppercase tracking-[0.25em] text-white/30 w-14 shrink-0 pt-0.5">Village</span>
-                      <span className="text-sm text-white/70">{photo.village}</span>
-                    </div>
-                  )}
-                  {photo.year && (
-                    <div className="flex items-baseline gap-4">
-                      <span className="text-[10px] uppercase tracking-[0.25em] text-white/30 w-14 shrink-0 pt-0.5">Année</span>
-                      <span className="text-sm text-white/70">{photo.year}</span>
-                    </div>
-                  )}
-                  {photo.type && (
-                    <div className="flex items-baseline gap-4">
-                      <span className="text-[10px] uppercase tracking-[0.25em] text-white/30 w-14 shrink-0 pt-0.5">Type</span>
-                      <span className="text-sm text-white/70 capitalize">{photo.type}</span>
-                    </div>
-                  )}
-                </div>
               </div>
 
-              {/* Description */}
-              {photo.description && (
-                <div className="border-t border-white/5 pt-5">
-                  <p className="text-[10px] uppercase tracking-[0.25em] text-white/30 mb-3">Description</p>
-                  <p className="text-sm text-white/60 leading-relaxed">{photo.description}</p>
-                </div>
-              )}
-
-              {/* Mini carte */}
+              {/* Non animé : mini carte */}
               {photo.latitude != null && photo.longitude != null && (
                 <div className="border-t border-white/5 pt-5">
                   <div className="flex items-center justify-between mb-3">
@@ -565,7 +621,7 @@ export default function PhotoPage() {
                 </div>
               )}
 
-              {/* Bouton signaler */}
+              {/* Non animé : bouton signaler */}
               <div className="border-t border-white/5 pt-5">
                 <button
                   onClick={openReport}
@@ -575,6 +631,7 @@ export default function PhotoPage() {
                   Signaler cette photo
                 </button>
               </div>
+
             </div>
           </div>
         </div>
@@ -759,6 +816,7 @@ export default function PhotoPage() {
           <div className="flex-1" />
         )}
       </div>
+
     </div>
   );
 }
