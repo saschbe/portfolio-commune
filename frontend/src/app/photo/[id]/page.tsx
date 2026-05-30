@@ -454,7 +454,7 @@ export default function PhotoPage() {
           <div
             className="overflow-auto cursor-zoom-out"
             style={{ maxWidth: "95vw", maxHeight: "95vh", touchAction: "pinch-zoom" }}
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); setZoomed(false); }}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
