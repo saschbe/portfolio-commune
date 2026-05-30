@@ -21,6 +21,7 @@ type Photo = {
   restored: boolean;
   description: string;
   status?: string | null;
+  hameau?: string | null;
 };
 
 type Category = {
@@ -34,6 +35,16 @@ type ActiveFilter = {
   nom: string;
   value: string;
 };
+
+const VILLAGES_HAMEAUX: Record<string, string[]> = {
+  "Gemmenich":   ["Völkerich"],
+  "Hombourg":    ["Gulpen"],
+  "Montzen":     ["Montzen-Gare"],
+  "Moresnet":    ["Moresnet-Chapelle"],
+  "Sippenaeken": ["Terbruggen", "Beusdael"],
+  "Plombières":  [],
+};
+const VILLAGES = Object.keys(VILLAGES_HAMEAUX);
 
 const ASPECTS = [
   "aspect-[4/3]",
@@ -110,6 +121,8 @@ export default function GaleriePage() {
   const abortRefs       = useRef<Record<string, AbortController>>({});
   const [filterRestaureeOui, setFilterRestaureeOui] = useState(false);
   const [filterRestaureeNon, setFilterRestaureeNon] = useState(false);
+  const [selectedVillage, setSelectedVillage]       = useState<string | null>(null);
+  const [selectedHameau, setSelectedHameau]         = useState<string | null>(null);
 
   // Signalement
   const [reportingPhoto, setReportingPhoto] = useState<Photo | null>(null);
@@ -360,9 +373,11 @@ export default function GaleriePage() {
   // Restaurée : filtre actif seulement si un seul des deux boutons est activé
   const restoreeFiltered = filterRestaureeOui !== filterRestaureeNon;
 
-  const filteredPhotos = (activeFilters.length === 0 && !restoreeFiltered)
+  const filteredPhotos = (activeFilters.length === 0 && !restoreeFiltered && !selectedVillage && !selectedHameau)
     ? photos
     : photos.filter(photo => {
+        if (selectedVillage && photo.village !== selectedVillage) return false;
+        if (selectedHameau && photo.hameau !== selectedHameau) return false;
         const passesFilters = activeFilters.every(f => {
           const val = (photo as unknown as Record<string, unknown>)[f.colonne];
           if (val === null || val === undefined) return false;
@@ -377,7 +392,11 @@ export default function GaleriePage() {
         return true;
       });
 
-  const totalActiveFilters = activeFilters.length + (restoreeFiltered ? 1 : 0);
+  const totalActiveFilters =
+    activeFilters.length +
+    (restoreeFiltered ? 1 : 0) +
+    (selectedVillage ? 1 : 0) +
+    (selectedHameau ? 1 : 0);
 
   const displayName =
     (user?.user_metadata?.name as string | undefined) ??
@@ -539,7 +558,7 @@ export default function GaleriePage() {
           <div className="flex flex-col gap-3 mb-10">
             <div className="flex items-center gap-4">
               <button
-                onClick={() => { setActiveFilters([]); setFilterRestaureeOui(false); setFilterRestaureeNon(false); }}
+                onClick={() => { setActiveFilters([]); setFilterRestaureeOui(false); setFilterRestaureeNon(false); setSelectedVillage(null); setSelectedHameau(null); }}
                 className="text-[10px] uppercase tracking-[0.25em] text-white/30 hover:text-white/60 transition-colors"
               >
                 Tout effacer
@@ -548,6 +567,28 @@ export default function GaleriePage() {
 
             {/* Badges filtres actifs */}
             <div className="flex flex-wrap gap-2">
+              {selectedVillage && (
+                <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-cyan-300/10 border border-cyan-300/30 text-cyan-300 text-[10px] uppercase tracking-[0.15em]">
+                  <span className="text-cyan-300/50">Village :</span>
+                  {selectedVillage}
+                  <button
+                    onClick={() => { setSelectedVillage(null); setSelectedHameau(null); }}
+                    aria-label="Supprimer le filtre village"
+                    className="text-cyan-300/50 hover:text-cyan-300 leading-none transition-colors"
+                  >✕</button>
+                </span>
+              )}
+              {selectedHameau && (
+                <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-cyan-300/10 border border-cyan-300/30 text-cyan-300 text-[10px] uppercase tracking-[0.15em]">
+                  <span className="text-cyan-300/50">Hameau :</span>
+                  {selectedHameau}
+                  <button
+                    onClick={() => setSelectedHameau(null)}
+                    aria-label="Supprimer le filtre hameau"
+                    className="text-cyan-300/50 hover:text-cyan-300 leading-none transition-colors"
+                  >✕</button>
+                </span>
+              )}
               {activeFilters.map((f, i) => (
                 <span key={i}
                   className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-cyan-300/10 border border-cyan-300/30 text-cyan-300 text-[10px] uppercase tracking-[0.15em]"
@@ -575,7 +616,7 @@ export default function GaleriePage() {
             <p className="text-white/20 uppercase tracking-[0.35em] text-xs mb-4">Aucune photo</p>
             {totalActiveFilters > 0 && (
               <button
-                onClick={() => { setActiveFilters([]); setFilterRestaureeOui(false); setFilterRestaureeNon(false); }}
+                onClick={() => { setActiveFilters([]); setFilterRestaureeOui(false); setFilterRestaureeNon(false); setSelectedVillage(null); setSelectedHameau(null); }}
                 className="text-cyan-300/50 hover:text-cyan-300 text-[10px] uppercase tracking-[0.25em] transition-colors">
                 Effacer les filtres →
               </button>
@@ -656,6 +697,61 @@ export default function GaleriePage() {
 
         {/* Catégories */}
         <div className="flex-1 overflow-y-auto px-6 py-6 space-y-8">
+
+          {/* Village */}
+          <div>
+            <label className="block text-[10px] uppercase tracking-[0.3em] text-white/40 mb-3">
+              Village
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {VILLAGES.map((v) => (
+                <button
+                  key={v}
+                  onClick={() => {
+                    if (selectedVillage === v) {
+                      setSelectedVillage(null);
+                      setSelectedHameau(null);
+                    } else {
+                      setSelectedVillage(v);
+                      setSelectedHameau(null);
+                    }
+                  }}
+                  className={`px-3 py-1.5 rounded-full border text-[11px] uppercase tracking-[0.2em] transition-all duration-200 ${
+                    selectedVillage === v
+                      ? "bg-cyan-300/15 border-cyan-300/50 text-cyan-300"
+                      : "bg-white/5 border-white/10 text-white/50 hover:border-white/25 hover:text-white/80"
+                  }`}
+                >
+                  {v}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Hameau · Lieu-dit */}
+          {selectedVillage && VILLAGES_HAMEAUX[selectedVillage].length > 0 && (
+            <div className="animate-fadeIn">
+              <label className="block text-[10px] uppercase tracking-[0.3em] text-white/40 mb-3">
+                Hameau · Lieu-dit
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {VILLAGES_HAMEAUX[selectedVillage].map((h) => (
+                  <button
+                    key={h}
+                    onClick={() => setSelectedHameau(selectedHameau === h ? null : h)}
+                    className={`px-3 py-1.5 rounded-full border text-[11px] uppercase tracking-[0.2em] transition-all duration-200 ${
+                      selectedHameau === h
+                        ? "bg-cyan-300/15 border-cyan-300/50 text-cyan-300"
+                        : "bg-white/5 border-white/10 text-white/50 hover:border-white/25 hover:text-white/80"
+                    }`}
+                  >
+                    {h}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {categories.length === 0 ? (
             <p className="text-white/25 text-[10px] uppercase tracking-[0.25em]">
               Aucune catégorie disponible
@@ -777,7 +873,7 @@ export default function GaleriePage() {
         {totalActiveFilters > 0 && (
           <div className="shrink-0 px-6 py-4 border-t border-white/10">
             <button
-              onClick={() => { setActiveFilters([]); setFilterRestaureeOui(false); setFilterRestaureeNon(false); }}
+              onClick={() => { setActiveFilters([]); setFilterRestaureeOui(false); setFilterRestaureeNon(false); setSelectedVillage(null); setSelectedHameau(null); }}
               className="w-full py-2.5 rounded-full border border-white/10 text-white/40 text-xs uppercase tracking-[0.25em] hover:border-white/20 hover:text-white/60 transition-all"
             >
               Effacer tous les filtres

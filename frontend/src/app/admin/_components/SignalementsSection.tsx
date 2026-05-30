@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
+import { logActivite } from "@/lib/logActivite";
 
 type Signalement = {
   id: string;
@@ -54,6 +55,7 @@ export default function SignalementsSection({ onCountChange }: { onCountChange: 
   const [loading, setLoading]           = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>("all");
+  const currentUserId = useRef<string | null>(null);
 
   // Menu actions
   const [actionMenuId, setActionMenuId] = useState<string | null>(null);
@@ -77,7 +79,12 @@ export default function SignalementsSection({ onCountChange }: { onCountChange: 
     setLoading(false);
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+    supabase.auth.getUser().then(({ data }) => {
+      currentUserId.current = data.user?.id ?? null;
+    });
+  }, [load]);
 
   // ── Actions ────────────────────────────────────────────────────────────────
 
@@ -85,6 +92,13 @@ export default function SignalementsSection({ onCountChange }: { onCountChange: 
     if (!confirm(`Supprimer définitivement "${s.photos?.title ?? s.photo_id}" ?`)) return;
     setProcessingId(s.id);
     setActionMenuId(null);
+    await logActivite({
+      type:        "photo_supprimee",
+      description: `Photo supprimée suite à signalement : "${s.photos?.title}"`,
+      photo_id:    s.photo_id,
+      actor_id:    currentUserId.current,
+      meta: { signalement_id: s.id, raison: s.raison, title: s.photos?.title },
+    });
     await supabase.from("photos").delete().eq("id", s.photo_id);
     await supabase.from("signalements").update({ status: "resolved" }).eq("id", s.id);
     setSignalements((prev) => prev.filter((x) => x.id !== s.id));
@@ -107,6 +121,22 @@ export default function SignalementsSection({ onCountChange }: { onCountChange: 
   async function saveEdit(s: Signalement) {
     setProcessingId(s.id);
     await supabase.from("photos").update(editForm).eq("id", s.photo_id);
+    await logActivite({
+      type:        "photo_modifiee",
+      description: `Champs modifiés : "${s.photos?.title}"`,
+      photo_id:    s.photo_id,
+      actor_id:    currentUserId.current,
+      details: {
+        before: {
+          title:       s.photos?.title,
+          village:     s.photos?.village,
+          year:        s.photos?.year,
+          description: s.photos?.description,
+          type:        s.photos?.type,
+        },
+        after: editForm,
+      },
+    });
     setSignalements((prev) => prev.map((x) =>
       x.id === s.id
         ? { ...x, photos: x.photos ? { ...x.photos, ...editForm } : x.photos }
@@ -127,6 +157,13 @@ export default function SignalementsSection({ onCountChange }: { onCountChange: 
     await supabase.from("signalements")
       .update({ status: "in_progress", details: motifText.trim() || s.details })
       .eq("id", s.id);
+    await logActivite({
+      type:        "statut_modifie",
+      description: `Statut modifié : signalement mis en attente`,
+      photo_id:    s.photo_id,
+      actor_id:    currentUserId.current,
+      meta: { signalement_id: s.id, nouveau_statut: "in_progress", motif: motifText.trim() },
+    });
     setSignalements((prev) => prev.map((x) =>
       x.id === s.id
         ? { ...x, status: "in_progress", details: motifText.trim() || x.details }
@@ -143,6 +180,13 @@ export default function SignalementsSection({ onCountChange }: { onCountChange: 
     setActionMenuId(null);
     await supabase.from("photos").update({ status: "approved" }).eq("id", s.photo_id);
     await supabase.from("signalements").update({ status: "resolved" }).eq("id", s.id);
+    await logActivite({
+      type:        "signalement_traite",
+      description: `Signalement résolu — photo conservée : "${s.photos?.title}"`,
+      photo_id:    s.photo_id,
+      actor_id:    currentUserId.current,
+      meta: { signalement_id: s.id, raison: s.raison, resolution: "approuvee" },
+    });
     setSignalements((prev) => prev.map((x) =>
       x.id === s.id ? { ...x, status: "resolved" } : x
     ));

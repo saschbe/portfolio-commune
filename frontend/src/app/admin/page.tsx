@@ -9,15 +9,19 @@ import UsersSection from "./_components/UsersSection";
 import PendingSection from "./_components/PendingSection";
 import LieuxSection from "./_components/LieuxSection";
 import SignalementsSection from "./_components/SignalementsSection";
+import UploadSection from "./_components/UploadSection";
+import LogsSection from "./_components/LogsSection";
 
-type Section = "photos" | "lieux" | "pending" | "users" | "signalements";
+type Section = "photos" | "lieux" | "pending" | "users" | "signalements" | "upload" | "logs";
 
 const navItems: { id: Section; label: string }[] = [
-  { id: "photos", label: "Photos" },
-  { id: "lieux", label: "Lieux" },
-  { id: "pending", label: "En attente d'approbation" },
-  { id: "users", label: "Utilisateurs" },
-  { id: "signalements", label: "Signalements" },
+  { id: "photos",        label: "Photos" },
+  { id: "lieux",         label: "Lieux" },
+  { id: "pending",       label: "En attente d'approbation" },
+  { id: "users",         label: "Utilisateurs" },
+  { id: "signalements",  label: "Signalements" },
+  { id: "upload",        label: "Importer des photos" },
+  { id: "logs",          label: "Historique" },
 ];
 
 export default function AdminPage() {
@@ -97,7 +101,9 @@ export default function AdminPage() {
     setMobileOpen(false);
   }
 
-  const sidebarLinks = navItems.map(({ id, label }) => (
+  const sidebarLinks = navItems
+    .filter(({ id }) => id !== "logs" || currentRole === "admin")
+    .map(({ id, label }) => (
     <button
       key={id}
       onClick={() => navigate(id)}
@@ -250,6 +256,8 @@ export default function AdminPage() {
         {activeSection === "signalements" && (
           <SignalementsSection onCountChange={refreshSignalements} />
         )}
+        {activeSection === "upload" && <UploadSection />}
+        {activeSection === "logs" && currentRole === "admin" && <LogsSection />}
       </main>
     </div>
   );

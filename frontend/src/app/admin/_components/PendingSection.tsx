@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
+import { logActivite } from "@/lib/logActivite";
 
 type Photo = {
   id: string;
@@ -25,9 +26,13 @@ export default function PendingSection({
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const currentUserId = useRef<string | null>(null);
 
   useEffect(() => {
     loadPending();
+    supabase.auth.getUser().then(({ data }) => {
+      currentUserId.current = data.user?.id ?? null;
+    });
   }, []);
 
   async function loadPending() {
@@ -63,10 +68,12 @@ export default function PendingSection({
         setActionError(msg);
         return;
       }
-      await supabase.from("activites").insert({
-        type: "photo_approuvee",
+      await logActivite({
+        type:        "photo_approuvee",
         description: `Photo approuvée : "${photo.title}" (${photo.village})`,
-        meta: { photo_id: photo.id, title: photo.title, village: photo.village },
+        photo_id:    photo.id,
+        actor_id:    currentUserId.current,
+        meta: { title: photo.title, village: photo.village },
       });
       await loadPending();
       onCountChange();
@@ -106,10 +113,12 @@ export default function PendingSection({
         setActionError(msg);
         return;
       }
-      await supabase.from("activites").insert({
-        type: "photo_rejetee",
-        description: `Photo rejetée : "${photo.title}" (${photo.village})`,
-        meta: { photo_id: photo.id, title: photo.title, village: photo.village },
+      await logActivite({
+        type:        "photo_rejetee",
+        description: `Photo rejetée et supprimée : "${photo.title}" (${photo.village})`,
+        photo_id:    photo.id,
+        actor_id:    currentUserId.current,
+        meta: { title: photo.title, village: photo.village, src: photo.src },
       });
       await loadPending();
       onCountChange();

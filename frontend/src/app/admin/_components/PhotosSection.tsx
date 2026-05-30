@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import dynamic from "next/dynamic";
 import { supabase } from "@/lib/supabase";
+import { logActivite } from "@/lib/logActivite";
 
 const LocationPicker = dynamic(
   () => import("@/components/LocationPicker"),
@@ -80,9 +81,13 @@ export default function PhotosSection() {
   >("idle");
 
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const currentUserId = useRef<string | null>(null);
 
   useEffect(() => {
     loadPhotos();
+    supabase.auth.getUser().then(({ data }) => {
+      currentUserId.current = data.user?.id ?? null;
+    });
   }, []);
 
   async function loadPhotos() {
@@ -124,7 +129,7 @@ export default function PhotosSection() {
       .from("photos")
       .getPublicUrl(filename);
 
-    const { error: insertError } = await supabase.from("photos").insert({
+    const { data: inserted, error: insertError } = await supabase.from("photos").insert({
       src: urlData.publicUrl,
       title: form.title,
       village: form.village,
@@ -135,12 +140,20 @@ export default function PhotosSection() {
       timeline: form.year,
       latitude: form.latitude !== "" ? parseFloat(form.latitude) : null,
       longitude: form.longitude !== "" ? parseFloat(form.longitude) : null,
-    });
+    }).select("id").single();
     if (insertError) {
       setAddError(insertError.message);
       setAddStatus("error");
       return;
     }
+
+    await logActivite({
+      type:        "photo_importee",
+      description: `Photo ajoutée : "${form.title}" (${form.village})`,
+      photo_id:    inserted?.id,
+      actor_id:    currentUserId.current,
+      meta: { title: form.title, village: form.village, year: form.year, type: form.type },
+    });
 
     setForm(defaultForm);
     setAddStatus("success");
@@ -151,6 +164,13 @@ export default function PhotosSection() {
     if (!window.confirm(`Supprimer "${photo.title}" ? Cette action est irréversible.`))
       return;
     setDeletingId(photo.id);
+    await logActivite({
+      type:        "photo_supprimee",
+      description: `Photo supprimée : "${photo.title}" (${photo.village})`,
+      photo_id:    photo.id,
+      actor_id:    currentUserId.current,
+      meta: { title: photo.title, village: photo.village, year: photo.year, src: photo.src },
+    });
     const filename = photo.src.split("/").pop();
     if (filename) await supabase.storage.from("photos").remove([filename]);
     await supabase.from("photos").delete().eq("id", photo.id);
@@ -162,6 +182,7 @@ export default function PhotosSection() {
     if (!editPhoto) return;
     e.preventDefault();
     setEditStatus("loading");
+    const original = photos.find((p) => p.id === editPhoto.id);
     const { error } = await supabase
       .from("photos")
       .update({
@@ -180,6 +201,30 @@ export default function PhotosSection() {
       setEditStatus("error");
       return;
     }
+    await logActivite({
+      type:        "photo_modifiee",
+      description: `Photo modifiée : "${editPhoto.title}" (${editPhoto.village})`,
+      photo_id:    editPhoto.id,
+      actor_id:    currentUserId.current,
+      details: {
+        before: {
+          title:       original?.title,
+          village:     original?.village,
+          year:        original?.year,
+          description: original?.description,
+          type:        original?.type,
+          restored:    original?.restored,
+        },
+        after: {
+          title:       editPhoto.title,
+          village:     editPhoto.village,
+          year:        editPhoto.year,
+          description: editPhoto.description,
+          type:        editPhoto.type,
+          restored:    editPhoto.restored,
+        },
+      },
+    });
     setEditStatus("success");
     setPhotos((prev) =>
       prev.map((p) => (p.id === editPhoto.id ? { ...p, ...editPhoto } : p))
