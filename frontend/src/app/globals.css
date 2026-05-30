@@ -94,18 +94,18 @@ body {
 
 /* ── Slide animations (photo navigation mobile) ─────────── */
 @keyframes slideOutLeft {
-  to { transform: translateX(-6%) scale(0.97); opacity: 0; }
+  to { transform: translateX(-5%) scale(0.97); opacity: 0; }
 }
 @keyframes slideOutRight {
-  to { transform: translateX(6%) scale(0.97); opacity: 0; }
+  to { transform: translateX(5%) scale(0.97); opacity: 0; }
 }
-@keyframes slideIn {
-  from { transform: translateX(0) scale(0.98); opacity: 0; }
-  to   { transform: translateX(0) scale(1);    opacity: 1; }
+@keyframes slideInPhoto {
+  from { opacity: 0; transform: scale(0.98); }
+  to   { opacity: 1; transform: scale(1); }
 }
-.animate-slideOutLeft  { animation: slideOutLeft  200ms ease-in  forwards; }
-.animate-slideOutRight { animation: slideOutRight 200ms ease-in  forwards; }
-.animate-slideIn       { animation: slideIn       250ms ease-out forwards; }
+.animate-slideOutLeft  { animation: slideOutLeft  180ms ease-in  forwards; }
+.animate-slideOutRight { animation: slideOutRight 180ms ease-in  forwards; }
+.animate-slideIn       { animation: slideInPhoto  220ms ease-out forwards; }
 
 /* ── Leaflet dark popup ─────────────────────────────────── */
 .leaflet-popup-dark .leaflet-popup-content-wrapper {

@@ -128,10 +128,10 @@ export default function PhotoPage() {
     setSlideDir(dir);
     setTimeout(() => {
       setCurrentId(targetId);
-      router.replace(`/photo/${targetId}`, { scroll: false });
       setSlideDir(null);
-    }, 200);
-  }, [router]);
+      window.history.replaceState(null, "", `/photo/${targetId}`);
+    }, 180);
+  }, []);
 
   // ── Sync currentId when URL id changes (Link clicks, browser back) ────────
 
