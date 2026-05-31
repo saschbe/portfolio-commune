@@ -1,7 +1,18 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import dynamic from "next/dynamic";
 import { supabase } from "@/lib/supabase";
+
+const LocationPicker = dynamic(
+  () => import("@/components/LocationPicker"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="w-full h-48 rounded-xl border border-white/10 bg-white/5 animate-pulse" />
+    ),
+  }
+);
 
 const villages = [
   "Plombières",
@@ -150,6 +161,20 @@ function LieuForm({
           />
         </div>
       </div>
+
+      {/* Carte — cliquer pour positionner le marqueur */}
+      <div>
+        <label className={labelClass}>Localisation sur la carte</label>
+        <LocationPicker
+          lat={f.latitude}
+          lng={f.longitude}
+          onChange={(lat, lng) => {
+            set("latitude", lat);
+            set("longitude", lng);
+          }}
+        />
+      </div>
+
       <div>
         <label className={labelClass}>Description</label>
         <textarea

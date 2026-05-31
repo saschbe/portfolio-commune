@@ -8,6 +8,7 @@ import dynamic from "next/dynamic";
 import { Turnstile } from "@marsidev/react-turnstile";
 import type { TurnstileInstance } from "@marsidev/react-turnstile";
 import { supabase } from "@/lib/supabase";
+import { imageUrl } from "@/lib/imageUrl";
 import type { User } from "@supabase/supabase-js";
 
 const PhotoMap = dynamic(() => import("./PhotoMap"), {
@@ -463,7 +464,7 @@ export default function PhotoPage() {
                   }}
                 >
                   <Image
-                    src={photo.src}
+                    src={imageUrl(photo.src, "medium")}
                     alt={photo.title}
                     width={1400}
                     height={950}
@@ -659,7 +660,7 @@ export default function PhotoPage() {
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={photo.src}
+              src={imageUrl(photo.src, "full")}
               alt={photo.title}
               style={{
                 display: "block",

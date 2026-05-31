@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import { logActivite } from "@/lib/logActivite";
+import { imageUrl } from "@/lib/imageUrl";
 
 type Signalement = {
   id: string;
@@ -258,7 +259,7 @@ export default function SignalementsSection({ onCountChange }: { onCountChange: 
                 {/* Miniature */}
                 {s.photos?.src && (
                   <div className="shrink-0 w-16 h-16 rounded-xl overflow-hidden border border-white/10">
-                    <Image src={s.photos.src} alt={s.photos.title ?? ""} width={64} height={64}
+                    <Image src={imageUrl(s.photos.src, "thumb")} alt={s.photos.title ?? ""} width={64} height={64}
                       className="object-cover w-full h-full" />
                   </div>
                 )}

@@ -5,6 +5,7 @@ import Image from "next/image";
 import dynamic from "next/dynamic";
 import { supabase } from "@/lib/supabase";
 import { logActivite } from "@/lib/logActivite";
+import { imageUrl } from "@/lib/imageUrl";
 
 const LocationPicker = dynamic(
   () => import("@/components/LocationPicker"),
@@ -407,7 +408,7 @@ export default function PhotosSection() {
             >
               <div className="relative w-16 h-12 rounded-lg overflow-hidden shrink-0 bg-white/5">
                 <Image
-                  src={photo.src}
+                  src={imageUrl(photo.src, "thumb")}
                   alt={photo.title}
                   fill
                   sizes="64px"

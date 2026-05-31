@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
+import { imageUrl } from "@/lib/imageUrl";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -355,7 +356,7 @@ export default function Gallery() {
               >
                 <div className={`relative ${ASPECTS[index % ASPECTS.length]}`}>
                   <Image
-                    src={photo.src}
+                    src={imageUrl(photo.src, "thumb")}
                     alt={photo.title}
                     fill
                     sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
@@ -437,7 +438,7 @@ export default function Gallery() {
               onClick={(e) => { e.stopPropagation(); setShowInfo(!showInfo); }}
             >
               <Image
-                src={selectedPhoto.src}
+                src={imageUrl(selectedPhoto.src, "medium")}
                 alt={selectedPhoto.title}
                 fill
                 sizes="100vw"
