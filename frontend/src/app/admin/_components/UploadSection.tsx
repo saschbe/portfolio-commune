@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { supabase } from "@/lib/supabase";
 import { VILLAGES_HAMEAUX, VILLAGES } from "@/lib/villages";
 import { logActivite } from "@/lib/logActivite";
+import exifr from "exifr";
 
 const LocationPicker = dynamic(() => import("@/components/LocationPicker"), {
   ssr: false,
@@ -30,6 +31,8 @@ type PhotoEntry = {
   longitude: string;
   status: "idle" | "uploading" | "success" | "error";
   errorMsg: string;
+  exifFields: string[];
+  showMap: boolean;
 };
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -49,6 +52,62 @@ const TOOLBAR_SELECT_CLASS =
   "text-[10px] uppercase tracking-[0.15em] text-white/60 " +
   "focus:outline-none focus:border-cyan-300/30 transition-all cursor-pointer [&>option]:bg-zinc-900";
 
+// ── ExifBadge ─────────────────────────────────────────────────────────────────
+
+function ExifBadge({ show }: { show: boolean }) {
+  if (!show) return null;
+  return (
+    <span className="ml-1.5 text-[8px] uppercase tracking-[0.2em] text-cyan-300/60 border border-cyan-300/20 px-1.5 py-0.5 rounded">
+      ◆ exif
+    </span>
+  );
+}
+
+// ── readExif ──────────────────────────────────────────────────────────────────
+
+async function readExif(file: File): Promise<Partial<PhotoEntry> & { exifFields: string[] }> {
+  const exifFields: string[] = [];
+  const patch: Partial<PhotoEntry> = {};
+  try {
+    const exif = await exifr.parse(file, {
+      gps: true, exif: true, iptc: true,
+      xmp: false, icc: false, jfif: false, ihdr: false,
+    }) as Record<string, unknown> | undefined;
+
+    if (!exif) return { exifFields };
+
+    if (exif.latitude != null && exif.longitude != null) {
+      patch.latitude  = (exif.latitude  as number).toFixed(6);
+      patch.longitude = (exif.longitude as number).toFixed(6);
+      patch.showMap   = true;
+      exifFields.push("latitude", "longitude");
+    }
+
+    for (const field of ["DateTimeOriginal", "CreateDate", "DateTime"]) {
+      if (exif[field]) {
+        const d = new Date(exif[field] as string | Date);
+        if (!isNaN(d.getFullYear())) {
+          patch.year = String(d.getFullYear());
+          exifFields.push("year");
+          break;
+        }
+      }
+    }
+
+    for (const field of ["ImageDescription", "Description", "Caption", "caption-abstract"]) {
+      const val = exif[field];
+      if (val && typeof val === "string" && val.trim().length > 0) {
+        patch.description = val.trim();
+        exifFields.push("description");
+        break;
+      }
+    }
+  } catch {
+    // EXIF illisibles — silencieux
+  }
+  return { ...patch, exifFields };
+}
+
 // ── UploadCard ─────────────────────────────────────────────────────────────────
 
 function UploadCard({
@@ -60,7 +119,12 @@ function UploadCard({
   onUpdate: (id: string, patch: Partial<PhotoEntry>) => void;
   onRemove: (id: string) => void;
 }) {
-  const [showMap, setShowMap] = useState(true);
+  const [showMap, setShowMap] = useState(entry.showMap ?? false);
+  const [openFullscreen, setOpenFullscreen] = useState(false);
+
+  useEffect(() => {
+    if (entry.showMap) setShowMap(true);
+  }, [entry.showMap]);
   const hameaux = VILLAGES_HAMEAUX[entry.village] ?? [];
   const hameauDisabled = !entry.village || hameaux.length === 0;
   const hasCoords = Boolean(entry.latitude || entry.longitude);
@@ -140,14 +204,21 @@ function UploadCard({
           ))}
         </select>
 
-        <input
-          type="text"
-          value={entry.year}
-          onChange={(e) => onUpdate(entry.id, { year: e.target.value })}
-          placeholder="ANNÉE (ex. 1923)"
-          maxLength={4}
-          className={FIELD_CLASS}
-        />
+        <div className="relative">
+          <input
+            type="text"
+            value={entry.year}
+            onChange={(e) => onUpdate(entry.id, { year: e.target.value })}
+            placeholder="ANNÉE (ex. 1923)"
+            maxLength={4}
+            className={`${FIELD_CLASS} ${entry.exifFields.includes("year") ? "border-cyan-300/30" : ""}`}
+          />
+          {entry.exifFields.includes("year") && (
+            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[8px] uppercase tracking-[0.15em] text-cyan-300/50 pointer-events-none">
+              ◆ exif
+            </span>
+          )}
+        </div>
 
         <select
           value={entry.type}
@@ -162,22 +233,35 @@ function UploadCard({
           ))}
         </select>
 
-        <textarea
-          value={entry.description}
-          onChange={(e) => onUpdate(entry.id, { description: e.target.value })}
-          rows={2}
-          placeholder="DESCRIPTION…"
-          className={`${FIELD_CLASS} resize-none`}
-        />
+        <div className="relative">
+          <textarea
+            value={entry.description}
+            onChange={(e) => onUpdate(entry.id, { description: e.target.value })}
+            rows={2}
+            placeholder="DESCRIPTION…"
+            className={`${FIELD_CLASS} resize-none ${entry.exifFields.includes("description") ? "border-cyan-300/30" : ""}`}
+          />
+          {entry.exifFields.includes("description") && (
+            <span className="absolute right-2 top-2 text-[8px] uppercase tracking-[0.15em] text-cyan-300/50 pointer-events-none">
+              ◆ exif
+            </span>
+          )}
+        </div>
 
         {/* Localisation — accordéon lazy (carte montée seulement si ouverte) */}
         <div>
           <button
             type="button"
-            onClick={() => setShowMap((v) => !v)}
+            onClick={() => {
+              setShowMap(true);
+              setOpenFullscreen(true);
+            }}
             className="w-full flex items-center justify-between text-[10px] uppercase tracking-[0.2em] text-white/30 hover:text-white/50 transition-colors py-1"
           >
-            <span>◦ Localisation</span>
+            <span className="flex items-center gap-1.5">
+              ◦ Localisation
+              <ExifBadge show={entry.exifFields.includes("latitude")} />
+            </span>
             <span className="font-mono normal-case tracking-wide text-white/20">
               {hasCoords
                 ? `${parseFloat(entry.latitude).toFixed(4)}, ${parseFloat(entry.longitude).toFixed(4)}`
@@ -194,7 +278,8 @@ function UploadCard({
                   onChange={(lat, lng) =>
                     onUpdate(entry.id, { latitude: lat, longitude: lng })
                   }
-                  defaultFullscreen={showMap}
+                  defaultFullscreen={openFullscreen}
+                  onFullscreenOpened={() => setOpenFullscreen(false)}
                 />
               </div>
               {hasCoords && (
@@ -289,12 +374,21 @@ export default function UploadSection() {
       restored: false,
       latitude: "",
       longitude: "",
-      status: file.size > MAX_SIZE ? "error" : "idle",
-      errorMsg:
-        file.size > MAX_SIZE ? "Fichier trop volumineux (max. 10 Mo)" : "",
+      status:     file.size > MAX_SIZE ? "error" : "idle",
+      errorMsg:   file.size > MAX_SIZE ? "Fichier trop volumineux (max. 10 Mo)" : "",
+      exifFields: [],
+      showMap:    false,
     }));
 
     setEntries((prev) => [...prev, ...newEntries]);
+
+    // Lecture EXIF en arrière-plan
+    newEntries.forEach(async (entry) => {
+      const exifData = await readExif(entry.file);
+      if (exifData.exifFields.length > 0) {
+        setEntries(prev => prev.map(e => e.id === entry.id ? { ...e, ...exifData } : e));
+      }
+    });
   }
 
   function handleDrop(e: React.DragEvent) {

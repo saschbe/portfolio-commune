@@ -9,6 +9,7 @@ interface Props {
   lat: string;
   lng: string;
   defaultFullscreen?: boolean;
+  onFullscreenOpened?: () => void;
   onChange: (lat: string, lng: string) => void;
 }
 
@@ -29,6 +30,7 @@ export default function LocationPicker({
   lng,
   onChange,
   defaultFullscreen,
+  onFullscreenOpened,
 }: Props) {
   const miniRef = useRef<HTMLDivElement>(null);
   const fullRef = useRef<HTMLDivElement>(null);
@@ -63,7 +65,7 @@ export default function LocationPicker({
       miniMapRef.current = map;
 
       L.tileLayer(
-        "https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png",
+        `https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png?api_key=${process.env.NEXT_PUBLIC_STADIA_API_KEY}`,
         { maxZoom: 20 },
       ).addTo(map);
 
@@ -137,7 +139,7 @@ export default function LocationPicker({
       fullMapRef.current = map;
 
       L.tileLayer(
-        "https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png",
+        `https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png?api_key=${process.env.NEXT_PUBLIC_STADIA_API_KEY}`,
         { maxZoom: 20 },
       ).addTo(map);
 
@@ -185,8 +187,8 @@ export default function LocationPicker({
     if (isNaN(parsedLat) || isNaN(parsedLng)) return;
 
     async function sync(
-      mapRef: React.MutableRefObject<LeafletMap | null>,
-      markerRef: React.MutableRefObject<LeafletMarker | null>,
+      mapRef: { current: LeafletMap | null },
+      markerRef: { current: LeafletMarker | null },
     ) {
       if (!mapRef.current) return;
       const L = (await import("leaflet")).default;
@@ -210,6 +212,11 @@ export default function LocationPicker({
     sync(miniMapRef, miniMarker);
     if (fullscreen) sync(fullMapRef, fullMarker);
   }, [lat, lng]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Notifier le parent quand la carte s'ouvre en plein écran
+  useEffect(() => {
+    if (fullscreen) onFullscreenOpened?.();
+  }, [fullscreen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="space-y-1">

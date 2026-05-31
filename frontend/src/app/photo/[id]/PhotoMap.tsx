@@ -34,7 +34,7 @@ export default function PhotoMap({ latitude, longitude }: Props) {
       mapRef.current = map;
 
       L.tileLayer(
-        "https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png",
+        `https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png?api_key=${process.env.NEXT_PUBLIC_STADIA_API_KEY}`,
         { maxZoom: 20 }
       ).addTo(map);
 
