@@ -19,7 +19,9 @@ export async function middleware(request: NextRequest) {
 
   // ── Mode maintenance ──────────────────────────────────────────────────────
   if (MAINTENANCE) {
-    const bypassed = MAINTENANCE_BYPASS.some(route => pathname.startsWith(route));
+    const bypassed = MAINTENANCE_BYPASS.some((route) =>
+      pathname.startsWith(route),
+    );
     if (!bypassed) {
       return NextResponse.rewrite(new URL("/maintenance", request.url));
     }
@@ -43,15 +45,15 @@ export async function middleware(request: NextRequest) {
         },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value)
+            request.cookies.set(name, value),
           );
           supabaseResponse = NextResponse.next({ request });
           cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
+            supabaseResponse.cookies.set(name, value, options),
           );
         },
       },
-    }
+    },
   );
 
   const {
@@ -87,7 +89,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    "/((?!_next/static|_next/image|favicon.ico).*)",
-  ],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };
