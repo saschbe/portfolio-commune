@@ -464,7 +464,7 @@ export default function PhotoPage() {
                   }}
                 >
                   <Image
-                    src={imageUrl(photo.src, "medium")}
+                    src={imageUrl(photo.src)}
                     alt={photo.title}
                     width={1400}
                     height={950}
@@ -660,7 +660,7 @@ export default function PhotoPage() {
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={imageUrl(photo.src, "full")}
+              src={imageUrl(photo.src)}
               alt={photo.title}
               style={{
                 display: "block",

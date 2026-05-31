@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
-import { imageUrl } from "@/lib/imageUrl";
+import { imageUrl, imageProps } from "@/lib/imageUrl";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -356,10 +356,11 @@ export default function Gallery() {
               >
                 <div className={`relative ${ASPECTS[index % ASPECTS.length]}`}>
                   <Image
-                    src={imageUrl(photo.src, "thumb")}
+                    src={imageUrl(photo.src)}
                     alt={photo.title}
                     fill
                     sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
+                    quality={imageProps("thumb").quality}
                     loading={index === 0 ? "eager" : "lazy"}
                     className="object-cover transition-all duration-2000 ease-out group-hover:scale-105 group-hover:brightness-110"
                   />
@@ -438,10 +439,11 @@ export default function Gallery() {
               onClick={(e) => { e.stopPropagation(); setShowInfo(!showInfo); }}
             >
               <Image
-                src={imageUrl(selectedPhoto.src, "medium")}
+                src={imageUrl(selectedPhoto.src)}
                 alt={selectedPhoto.title}
                 fill
                 sizes="100vw"
+                quality={imageProps("medium").quality}
                 className="object-contain select-none animate-[fadeIn_0.6s_ease]"
               />
             </div>

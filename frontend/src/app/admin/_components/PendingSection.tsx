@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import { logActivite } from "@/lib/logActivite";
-import { imageUrl } from "@/lib/imageUrl";
+import { imageUrl, imageProps } from "@/lib/imageUrl";
 
 type Photo = {
   id: string;
@@ -164,10 +164,11 @@ export default function PendingSection({
                 {/* Thumbnail */}
                 <div className="relative w-28 h-20 rounded-xl overflow-hidden shrink-0 bg-white/5">
                   <Image
-                    src={imageUrl(photo.src, "thumb")}
+                    src={imageUrl(photo.src)}
                     alt={photo.title}
                     fill
                     sizes="112px"
+                    quality={imageProps("thumb").quality}
                     className="object-cover"
                   />
                 </div>

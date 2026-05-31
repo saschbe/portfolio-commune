@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { Turnstile } from "@marsidev/react-turnstile";
-import { imageUrl } from "@/lib/imageUrl";
+import { imageUrl, imageProps } from "@/lib/imageUrl";
 import type { TurnstileInstance } from "@marsidev/react-turnstile";
 import { supabase } from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
@@ -568,10 +568,11 @@ export default function DashboardPage() {
                   >
                     <div className="relative w-16 h-12 rounded-lg overflow-hidden shrink-0 bg-white/5">
                       <Image
-                        src={imageUrl(photo.src, "thumb")}
+                        src={imageUrl(photo.src)}
                         alt={photo.title}
                         fill
                         sizes="64px"
+                        quality={imageProps("thumb").quality}
                         className="object-cover"
                       />
                     </div>

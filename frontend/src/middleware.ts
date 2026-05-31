@@ -1,7 +1,36 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+const MAINTENANCE = process.env.MAINTENANCE_MODE === "true";
+
+const MAINTENANCE_BYPASS = [
+  "/maintenance",
+  "/admin",
+  "/login",
+  "/auth",
+  "/_next",
+  "/images",
+  "/favicon",
+  "/api",
+];
+
 export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  // ── Mode maintenance ──────────────────────────────────────────────────────
+  if (MAINTENANCE) {
+    const bypassed = MAINTENANCE_BYPASS.some(route => pathname.startsWith(route));
+    if (!bypassed) {
+      return NextResponse.rewrite(new URL("/maintenance", request.url));
+    }
+  }
+
+  // ── Chemin rapide : routes publiques ──────────────────────────────────────
+  if (!pathname.startsWith("/admin") && !pathname.startsWith("/dashboard")) {
+    return NextResponse.next();
+  }
+
+  // ── Protection auth (admin / dashboard) ──────────────────────────────────
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
@@ -29,40 +58,36 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { pathname } = request.nextUrl;
+  if (!user) {
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("next", pathname);
+    return NextResponse.redirect(loginUrl);
+  }
 
-  // Routes protégées — nécessitent une session
-  if (pathname.startsWith("/admin") || pathname.startsWith("/dashboard")) {
-    if (!user) {
-      const loginUrl = new URL("/login", request.url);
-      loginUrl.searchParams.set("next", pathname);
-      return NextResponse.redirect(loginUrl);
-    }
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
 
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
+  const role = profile?.role ?? "user";
+  const isPrivileged = ["admin", "moderator"].includes(role);
 
-    const role = profile?.role ?? "user";
-    const isPrivileged = ["admin", "moderator"].includes(role);
+  // /admin — réservé aux admins et modérateurs
+  if (pathname.startsWith("/admin") && !isPrivileged) {
+    return NextResponse.redirect(new URL("/dashboard", request.url));
+  }
 
-    // /admin — réservé aux admins et modérateurs
-    if (pathname.startsWith("/admin") && !isPrivileged) {
-      return NextResponse.redirect(new URL("/dashboard", request.url));
-    }
-
-    // /dashboard — seuls les admins sont redirigés vers /admin
-    // les modérateurs restent sur /dashboard pour accéder à leurs préférences
-    if (pathname.startsWith("/dashboard") && role === "admin") {
-      return NextResponse.redirect(new URL("/admin", request.url));
-    }
+  // /dashboard — les admins sont redirigés vers /admin
+  if (pathname.startsWith("/dashboard") && role === "admin") {
+    return NextResponse.redirect(new URL("/admin", request.url));
   }
 
   return supabaseResponse;
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/dashboard/:path*"],
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico).*)",
+  ],
 };
