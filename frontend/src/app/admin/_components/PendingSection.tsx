@@ -164,11 +164,10 @@ export default function PendingSection({
                 {/* Thumbnail */}
                 <div className="relative w-28 h-20 rounded-xl overflow-hidden shrink-0 bg-white/5">
                   <Image
-                    src={imageUrl(photo.src)}
+                    src={imageUrl(photo.src, "thumb")}
                     alt={photo.title}
                     fill
                     sizes="112px"
-                    quality={imageProps("thumb").quality}
                     className="object-cover"
                   />
                 </div>
