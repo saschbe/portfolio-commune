@@ -1,7 +1,11 @@
 export type ImageSize = "thumb" | "medium" | "full";
 
+if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
+  console.error("[imageUrl] NEXT_PUBLIC_SUPABASE_URL manquant");
+}
+
 const STORAGE_BASE =
-  process.env.NEXT_PUBLIC_SUPABASE_URL +
+  (process.env.NEXT_PUBLIC_SUPABASE_URL ?? "") +
   "/storage/v1/object/public/photos";
 
 const IMAGE_PROPS: Record<ImageSize, { width: number; sizes: string }> = {

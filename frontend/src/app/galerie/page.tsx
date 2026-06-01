@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { Turnstile } from "@marsidev/react-turnstile";
 import type { TurnstileInstance } from "@marsidev/react-turnstile";
 import { supabase } from "@/lib/supabase";
+import { imageUrl } from "@/lib/imageUrl";
 import type { User } from "@supabase/supabase-js";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -631,7 +632,7 @@ export default function GaleriePage() {
               >
                 <div className={`relative ${ASPECTS[index % ASPECTS.length]}`}>
                   <Image
-                    src={photo.src} alt={photo.title} fill
+                    src={imageUrl(photo.src, "thumb")} alt={photo.title} fill
                     sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
                     loading={index === 0 ? "eager" : "lazy"}
                     className="object-cover transition-all duration-2000 ease-out group-hover:scale-105 group-hover:brightness-110"
