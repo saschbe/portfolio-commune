@@ -129,9 +129,25 @@ Deno.serve(async (req: Request) => {
     return jsonResponse(cors, 401, { ok: false, error: "Non authentifié" });
   }
 
-  const supabaseUrl    = Deno.env.get("SUPABASE_URL")!;
-  const anonKey        = Deno.env.get("SUPABASE_PUBLISHABLE_KEYS")!;
-  const serviceRoleKey = Deno.env.get("SUPABASE_SECRET_KEYS")!;
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+
+  const publishableKeys = Deno.env.get("SUPABASE_PUBLISHABLE_KEYS")!;
+  let anonKey: string;
+  try {
+    const parsed = JSON.parse(publishableKeys);
+    anonKey = typeof parsed === "object" ? Object.values(parsed)[0] as string : publishableKeys;
+  } catch {
+    anonKey = publishableKeys;
+  }
+
+  const secretKeys = Deno.env.get("SUPABASE_SECRET_KEYS")!;
+  let serviceRoleKey: string;
+  try {
+    const parsed = JSON.parse(secretKeys);
+    serviceRoleKey = typeof parsed === "object" ? Object.values(parsed)[0] as string : secretKeys;
+  } catch {
+    serviceRoleKey = secretKeys;
+  }
 
   // Client utilisateur : vérifie que le token est valide
   const userClient = createClient(supabaseUrl, anonKey, {
