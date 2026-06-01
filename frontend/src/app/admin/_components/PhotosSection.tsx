@@ -114,29 +114,22 @@ export default function PhotosSection() {
     setAddStatus("loading");
     setAddError("");
 
-    const jwt = (await supabase.auth.getSession()).data.session?.access_token ?? "";
-    const formData = new FormData();
-    formData.append("file", form.file);
-    let resizeResult: { ok: boolean; path?: string; error?: string };
-    try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/resize-image`,
-        { method: "POST", headers: { Authorization: `Bearer ${jwt}` }, body: formData },
-      );
-      resizeResult = await res.json();
-    } catch {
-      setAddError("Impossible de contacter le service d'image");
-      setAddStatus("error");
-      return;
-    }
-    if (!resizeResult.ok) {
-      setAddError(resizeResult.error ?? "Erreur lors du traitement de l'image");
+    const ext = form.file.name.split(".").pop();
+    const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("photos")
+      .upload(filename, form.file, { cacheControl: "3600", upsert: false });
+    if (uploadError) {
+      setAddError(uploadError.message);
       setAddStatus("error");
       return;
     }
 
+    const { data: urlData } = supabase.storage.from("photos").getPublicUrl(filename);
+
     const { data: inserted, error: insertError } = await supabase.from("photos").insert({
-      src: resizeResult.path,
+      src: urlData.publicUrl,
       title: form.title,
       village: form.village,
       year: form.year,
