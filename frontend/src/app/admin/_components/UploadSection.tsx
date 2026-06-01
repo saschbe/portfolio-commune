@@ -347,7 +347,7 @@ export default function UploadSection() {
   // ── Derived ───────────────────────────────────────────────────────────────
 
   const readyCount = entries.filter(
-    (e) => e.title.trim() && e.village.trim() && e.status === "idle",
+    (e) => e.title.trim() !== "" && e.village !== "" && e.status === "idle",
   ).length;
   const successCount = entries.filter((e) => e.status === "success").length;
 
@@ -418,6 +418,9 @@ export default function UploadSection() {
   async function uploadEntry(entry: PhotoEntry, userId: string | undefined, jwt: string) {
     updateEntry(entry.id, { status: "uploading" });
     try {
+      console.log("[upload] JWT:", jwt ? "présent" : "absent");
+      if (!jwt) throw new Error("Session expirée, veuillez vous reconnecter");
+
       const formData = new FormData();
       formData.append("file", entry.file);
       const res = await fetch(
@@ -470,6 +473,7 @@ export default function UploadSection() {
 
   async function handleSubmit() {
     setSubmitting(true);
+    await supabase.auth.getUser(); // force refresh du token si expiré
     const {
       data: { session },
     } = await supabase.auth.getSession();
@@ -477,7 +481,7 @@ export default function UploadSection() {
     const jwt    = session?.access_token ?? "";
 
     const ready = entries.filter(
-      (e) => e.title.trim() && e.village.trim() && e.status === "idle",
+      (e) => e.title.trim() !== "" && e.village !== "" && e.status === "idle",
     );
     for (let i = 0; i < ready.length; i += 4) {
       await Promise.all(
