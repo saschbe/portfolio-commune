@@ -415,18 +415,20 @@ export default function UploadSection() {
 
   // ── Upload ────────────────────────────────────────────────────────────────
 
-  async function uploadEntry(entry: PhotoEntry, userId: string | undefined) {
+  async function uploadEntry(entry: PhotoEntry, userId: string | undefined, jwt: string) {
     updateEntry(entry.id, { status: "uploading" });
     try {
-      const ext = entry.file.name.split(".").pop() ?? "jpg";
-      const path = `${Date.now()}-${crypto.randomUUID()}.${ext}`;
+      if (!jwt) throw new Error("Session expirée, veuillez vous reconnecter");
 
-      const { error: storageError } = await supabase.storage
-        .from("photos")
-        .upload(path, entry.file, { cacheControl: "3600", upsert: false });
-      if (storageError) throw storageError;
-
-      const { data: { publicUrl } } = supabase.storage.from("photos").getPublicUrl(path);
+      const formData = new FormData();
+      formData.append("file", entry.file);
+      const res = await fetch("/api/resize", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${jwt}` },
+        body: formData,
+      });
+      const result = await res.json() as { ok: boolean; path?: string; error?: string };
+      if (!result.ok) throw new Error(result.error ?? "Erreur lors du traitement de l'image");
 
       const { data: inserted, error: dbError } = await supabase
         .from("photos")
@@ -440,7 +442,7 @@ export default function UploadSection() {
           restored: entry.restored,
           latitude: entry.latitude ? parseFloat(entry.latitude) : null,
           longitude: entry.longitude ? parseFloat(entry.longitude) : null,
-          src: publicUrl,
+          src: result.path,
           status: "approved",
           user_id: userId ?? null,
         })
@@ -471,15 +473,16 @@ export default function UploadSection() {
 
   async function handleSubmit() {
     setSubmitting(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    const userId = user?.id;
+    const { data: { session } } = await supabase.auth.getSession();
+    const userId = session?.user?.id;
+    const jwt    = session?.access_token ?? "";
 
     const ready = entries.filter(
       (e) => e.title.trim() !== "" && e.village !== "" && e.status === "idle",
     );
     for (let i = 0; i < ready.length; i += 4) {
       await Promise.all(
-        ready.slice(i, i + 4).map((e) => uploadEntry(e, userId)),
+        ready.slice(i, i + 4).map((e) => uploadEntry(e, userId, jwt)),
       );
     }
     setSubmitting(false);
