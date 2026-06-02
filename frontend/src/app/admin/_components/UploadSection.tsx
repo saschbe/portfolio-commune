@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { supabase } from "@/lib/supabase";
 import { VILLAGES_HAMEAUX, VILLAGES } from "@/lib/villages";
 import { logActivite } from "@/lib/logActivite";
+import { resizeImage } from "@/lib/resizeImage";
 import exifr from "exifr";
 
 const LocationPicker = dynamic(() => import("@/components/LocationPicker"), {
@@ -415,20 +416,39 @@ export default function UploadSection() {
 
   // ── Upload ────────────────────────────────────────────────────────────────
 
-  async function uploadEntry(entry: PhotoEntry, userId: string | undefined, jwt: string) {
+  async function uploadEntry(entry: PhotoEntry, userId: string | undefined) {
     updateEntry(entry.id, { status: "uploading" });
     try {
-      if (!jwt) throw new Error("Session expirée, veuillez vous reconnecter");
+      const uuid = crypto.randomUUID();
+      const ext  = entry.file.name.split(".").pop()?.toLowerCase() ?? "jpg";
+      const originalFilename = `${uuid}.${ext}`;
+      const webpFilename     = `${uuid}.webp`;
 
-      const formData = new FormData();
-      formData.append("file", entry.file);
-      const res = await fetch("/api/resize", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${jwt}` },
-        body: formData,
-      });
-      const result = await res.json() as { ok: boolean; path?: string; error?: string };
-      if (!result.ok) throw new Error(result.error ?? "Erreur lors du traitement de l'image");
+      const { error: origError } = await supabase.storage
+        .from("photos-originals")
+        .upload(originalFilename, entry.file, {
+          contentType: entry.file.type,
+          cacheControl: "31536000",
+          upsert: false,
+        });
+      if (origError) throw new Error(`Original : ${origError.message}`);
+
+      const [thumbBlob, mediumBlob, fullBlob] = await Promise.all([
+        resizeImage(entry.file, 400,  0.75),
+        resizeImage(entry.file, 900,  0.82),
+        resizeImage(entry.file, 1920, 0.90),
+      ]);
+
+      const uploadErrors = await Promise.all([
+        supabase.storage.from("photos").upload(`thumb/${webpFilename}`,  thumbBlob,  { contentType: "image/webp", cacheControl: "31536000", upsert: false }).then(r => r.error),
+        supabase.storage.from("photos").upload(`medium/${webpFilename}`, mediumBlob, { contentType: "image/webp", cacheControl: "31536000", upsert: false }).then(r => r.error),
+        supabase.storage.from("photos").upload(`full/${webpFilename}`,   fullBlob,   { contentType: "image/webp", cacheControl: "31536000", upsert: false }).then(r => r.error),
+      ]);
+      const firstError = uploadErrors.find(Boolean);
+      if (firstError) {
+        await supabase.storage.from("photos-originals").remove([originalFilename]);
+        throw new Error(`Upload : ${(firstError as { message: string }).message}`);
+      }
 
       const { data: inserted, error: dbError } = await supabase
         .from("photos")
@@ -442,7 +462,7 @@ export default function UploadSection() {
           restored: entry.restored,
           latitude: entry.latitude ? parseFloat(entry.latitude) : null,
           longitude: entry.longitude ? parseFloat(entry.longitude) : null,
-          src: result.path,
+          src: webpFilename,
           status: "approved",
           user_id: userId ?? null,
         })
@@ -473,16 +493,15 @@ export default function UploadSection() {
 
   async function handleSubmit() {
     setSubmitting(true);
-    const { data: { session } } = await supabase.auth.getSession();
-    const userId = session?.user?.id;
-    const jwt    = session?.access_token ?? "";
+    const { data: { user } } = await supabase.auth.getUser();
+    const userId = user?.id;
 
     const ready = entries.filter(
       (e) => e.title.trim() !== "" && e.village !== "" && e.status === "idle",
     );
     for (let i = 0; i < ready.length; i += 4) {
       await Promise.all(
-        ready.slice(i, i + 4).map((e) => uploadEntry(e, userId, jwt)),
+        ready.slice(i, i + 4).map((e) => uploadEntry(e, userId)),
       );
     }
     setSubmitting(false);

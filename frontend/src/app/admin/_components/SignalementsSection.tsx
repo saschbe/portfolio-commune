@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import { logActivite } from "@/lib/logActivite";
+import { deletePhotoFiles } from "@/lib/deletePhoto";
 import { imageUrl, imageProps } from "@/lib/imageUrl";
 
 type Signalement = {
@@ -100,6 +101,7 @@ export default function SignalementsSection({ onCountChange }: { onCountChange: 
       actor_id:    currentUserId.current,
       meta: { signalement_id: s.id, raison: s.raison, title: s.photos?.title },
     });
+    await deletePhotoFiles(s.photos?.src ?? "");
     await supabase.from("photos").delete().eq("id", s.photo_id);
     await supabase.from("signalements").update({ status: "resolved" }).eq("id", s.id);
     setSignalements((prev) => prev.filter((x) => x.id !== s.id));

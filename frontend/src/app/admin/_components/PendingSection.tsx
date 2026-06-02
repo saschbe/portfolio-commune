@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import { logActivite } from "@/lib/logActivite";
+import { deletePhotoFiles } from "@/lib/deletePhoto";
 import { imageUrl, imageProps } from "@/lib/imageUrl";
 
 type Photo = {
@@ -90,14 +91,7 @@ export default function PendingSection({
     setActionError(null);
     console.log("[pending] reject — id:", photo.id);
     try {
-      const filename = photo.src.split("/").pop();
-      if (filename) {
-        const { error: storageError } = await supabase.storage
-          .from("photos")
-          .remove([filename]);
-        if (storageError)
-          console.warn("[pending] reject storage:", storageError);
-      }
+      await deletePhotoFiles(photo.src);
       const { data, error } = await supabase
         .from("photos")
         .delete()

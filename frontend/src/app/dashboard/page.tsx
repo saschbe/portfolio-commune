@@ -7,6 +7,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { Turnstile } from "@marsidev/react-turnstile";
 import { imageUrl, imageProps } from "@/lib/imageUrl";
+import { resizeImage } from "@/lib/resizeImage";
 import type { TurnstileInstance } from "@marsidev/react-turnstile";
 import { supabase } from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
@@ -191,35 +192,31 @@ export default function DashboardPage() {
       return;
     }
 
-    const jwt = (await supabase.auth.getSession()).data.session?.access_token ?? "";
-    if (!jwt) {
-      setSubmitError("Session expirée, veuillez vous reconnecter");
-      setSubmitStatus("error");
-      return;
-    }
-    const formData = new FormData();
-    formData.append("file", form.file);
-    let resizeResult: { ok: boolean; path?: string; error?: string };
-    try {
-      const res = await fetch("/api/resize", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${jwt}` },
-        body: formData,
+    const uuid = crypto.randomUUID();
+    const ext  = form.file.name.split(".").pop()?.toLowerCase() ?? "jpg";
+    const originalFilename = `${uuid}.${ext}`;
+    const webpFilename     = `${uuid}.webp`;
+
+    const { error: origError } = await supabase.storage
+      .from("photos-originals")
+      .upload(originalFilename, form.file, {
+        contentType: form.file.type, cacheControl: "31536000", upsert: false,
       });
-      resizeResult = await res.json();
-    } catch {
-      setSubmitError("Impossible de traiter l'image");
-      setSubmitStatus("error");
-      return;
-    }
-    if (!resizeResult.ok) {
-      setSubmitError(resizeResult.error ?? "Erreur lors du traitement de l'image");
-      setSubmitStatus("error");
-      return;
-    }
+    if (origError) { setSubmitError(origError.message); setSubmitStatus("error"); return; }
+
+    const [thumbBlob, mediumBlob, fullBlob] = await Promise.all([
+      resizeImage(form.file, 400,  0.75),
+      resizeImage(form.file, 900,  0.82),
+      resizeImage(form.file, 1920, 0.90),
+    ]);
+    await Promise.all([
+      supabase.storage.from("photos").upload(`thumb/${webpFilename}`,  thumbBlob,  { contentType: "image/webp", cacheControl: "31536000", upsert: false }),
+      supabase.storage.from("photos").upload(`medium/${webpFilename}`, mediumBlob, { contentType: "image/webp", cacheControl: "31536000", upsert: false }),
+      supabase.storage.from("photos").upload(`full/${webpFilename}`,   fullBlob,   { contentType: "image/webp", cacheControl: "31536000", upsert: false }),
+    ]);
 
     const { error: insertError } = await supabase.from("photos").insert({
-      src: resizeResult.path,
+      src: webpFilename,
       title: form.title,
       village: form.village,
       year: form.year,

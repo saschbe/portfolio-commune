@@ -5,6 +5,8 @@ import Image from "next/image";
 import dynamic from "next/dynamic";
 import { supabase } from "@/lib/supabase";
 import { logActivite } from "@/lib/logActivite";
+import { resizeImage } from "@/lib/resizeImage";
+import { deletePhotoFiles } from "@/lib/deletePhoto";
 import { imageUrl, imageProps } from "@/lib/imageUrl";
 
 const LocationPicker = dynamic(
@@ -114,62 +116,59 @@ export default function PhotosSection() {
     setAddStatus("loading");
     setAddError("");
 
-    const jwt = (await supabase.auth.getSession()).data.session?.access_token ?? "";
-    if (!jwt) {
-      setAddError("Session expirée, veuillez vous reconnecter");
-      setAddStatus("error");
-      return;
-    }
-    const formData = new FormData();
-    formData.append("file", form.file);
-    let resizeResult: { ok: boolean; path?: string; error?: string };
     try {
-      const res = await fetch("/api/resize", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${jwt}` },
-        body: formData,
+      const uuid = crypto.randomUUID();
+      const ext  = form.file.name.split(".").pop()?.toLowerCase() ?? "jpg";
+      const originalFilename = `${uuid}.${ext}`;
+      const webpFilename     = `${uuid}.webp`;
+
+      const { error: origError } = await supabase.storage
+        .from("photos-originals")
+        .upload(originalFilename, form.file, {
+          contentType: form.file.type, cacheControl: "31536000", upsert: false,
+        });
+      if (origError) throw origError;
+
+      const [thumbBlob, mediumBlob, fullBlob] = await Promise.all([
+        resizeImage(form.file, 400,  0.75),
+        resizeImage(form.file, 900,  0.82),
+        resizeImage(form.file, 1920, 0.90),
+      ]);
+      await Promise.all([
+        supabase.storage.from("photos").upload(`thumb/${webpFilename}`,  thumbBlob,  { contentType: "image/webp", cacheControl: "31536000", upsert: false }),
+        supabase.storage.from("photos").upload(`medium/${webpFilename}`, mediumBlob, { contentType: "image/webp", cacheControl: "31536000", upsert: false }),
+        supabase.storage.from("photos").upload(`full/${webpFilename}`,   fullBlob,   { contentType: "image/webp", cacheControl: "31536000", upsert: false }),
+      ]);
+
+      const { data: inserted, error: insertError } = await supabase.from("photos").insert({
+        src:         webpFilename,
+        title:       form.title,
+        village:     form.village,
+        year:        form.year,
+        description: form.description,
+        type:        form.type,
+        restored:    form.restored,
+        timeline:    form.year,
+        latitude:    form.latitude  !== "" ? parseFloat(form.latitude)  : null,
+        longitude:   form.longitude !== "" ? parseFloat(form.longitude) : null,
+      }).select("id").single();
+      if (insertError) throw insertError;
+
+      await logActivite({
+        type:        "photo_importee",
+        description: `Photo ajoutée : "${form.title}" (${form.village})`,
+        photo_id:    inserted?.id,
+        actor_id:    currentUserId.current,
+        meta: { title: form.title, village: form.village, year: form.year, type: form.type },
       });
-      resizeResult = await res.json();
-    } catch {
-      setAddError("Impossible de traiter l'image");
-      setAddStatus("error");
-      return;
-    }
-    if (!resizeResult.ok) {
-      setAddError(resizeResult.error ?? "Erreur lors du traitement de l'image");
-      setAddStatus("error");
-      return;
-    }
 
-    const { data: inserted, error: insertError } = await supabase.from("photos").insert({
-      src: resizeResult.path,
-      title: form.title,
-      village: form.village,
-      year: form.year,
-      description: form.description,
-      type: form.type,
-      restored: form.restored,
-      timeline: form.year,
-      latitude: form.latitude !== "" ? parseFloat(form.latitude) : null,
-      longitude: form.longitude !== "" ? parseFloat(form.longitude) : null,
-    }).select("id").single();
-    if (insertError) {
-      setAddError(insertError.message);
+      setForm(defaultForm);
+      setAddStatus("success");
+      loadPhotos();
+    } catch (err: unknown) {
+      setAddError(err instanceof Error ? err.message : "Erreur inconnue");
       setAddStatus("error");
-      return;
     }
-
-    await logActivite({
-      type:        "photo_importee",
-      description: `Photo ajoutée : "${form.title}" (${form.village})`,
-      photo_id:    inserted?.id,
-      actor_id:    currentUserId.current,
-      meta: { title: form.title, village: form.village, year: form.year, type: form.type },
-    });
-
-    setForm(defaultForm);
-    setAddStatus("success");
-    loadPhotos();
   }
 
   async function handleDelete(photo: Photo) {
@@ -183,8 +182,7 @@ export default function PhotosSection() {
       actor_id:    currentUserId.current,
       meta: { title: photo.title, village: photo.village, year: photo.year, src: photo.src },
     });
-    const filename = photo.src.split("/").pop();
-    if (filename) await supabase.storage.from("photos").remove([filename]);
+    await deletePhotoFiles(photo.src);
     await supabase.from("photos").delete().eq("id", photo.id);
     setDeletingId(null);
     setPhotos((prev) => prev.filter((p) => p.id !== photo.id));
