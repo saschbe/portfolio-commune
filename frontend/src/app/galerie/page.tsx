@@ -634,7 +634,8 @@ export default function GaleriePage() {
                   <Image
                     src={imageUrl(photo.src, "thumb")} alt={photo.title} fill
                     sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
-                    loading={index === 0 ? "eager" : "lazy"}
+                    priority={index < 3}
+                    loading={index < 3 ? "eager" : "lazy"}
                     className="object-cover transition-all duration-2000 ease-out group-hover:scale-105 group-hover:brightness-110"
                   />
                   <div className="absolute inset-0 bg-linear-to-t from-black/90 via-black/20 to-transparent opacity-70 group-hover:opacity-100 transition-all duration-700" />
