@@ -778,7 +778,7 @@ export default function GaleriePage() {
                         className={`flex-1 py-2 rounded-xl border text-xs uppercase tracking-[0.25em] transition-all duration-200 ${
                           filterRestaureeOui
                             ? "bg-cyan-300/10 border-cyan-300/40 text-cyan-300"
-                            : "bg-white/5 border-white/10 text-white/50 hover:bg-white/[0.07] hover:border-white/20 hover:text-white/70"
+                            : "bg-white/5 border-white/10 text-white/50 hover:bg-white/7 hover:border-white/20 hover:text-white/70"
                         }`}
                       >
                         Oui
@@ -788,7 +788,7 @@ export default function GaleriePage() {
                         className={`flex-1 py-2 rounded-xl border text-xs uppercase tracking-[0.25em] transition-all duration-200 ${
                           filterRestaureeNon
                             ? "bg-cyan-300/10 border-cyan-300/40 text-cyan-300"
-                            : "bg-white/5 border-white/10 text-white/50 hover:bg-white/[0.07] hover:border-white/20 hover:text-white/70"
+                            : "bg-white/5 border-white/10 text-white/50 hover:bg-white/7 hover:border-white/20 hover:text-white/70"
                         }`}
                       >
                         Non
@@ -911,7 +911,7 @@ export default function GaleriePage() {
                     <select
                       value={reportRaison}
                       onChange={(e) => setReportRaison(e.target.value)}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-cyan-300/60 focus:bg-white/[0.07] transition-all duration-200 [&>option]:bg-zinc-900"
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-cyan-300/60 focus:bg-white/7 transition-all duration-200 [&>option]:bg-zinc-900"
                     >
                       <option value="" disabled>Sélectionner une raison…</option>
                       {RAISONS.map((r) => (
@@ -927,7 +927,7 @@ export default function GaleriePage() {
                       onChange={(e) => setReportPrecision(e.target.value)}
                       rows={3}
                       placeholder="Décrivez le problème…"
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder-white/30 focus:outline-none focus:border-cyan-300/60 focus:bg-white/[0.07] transition-all duration-200 resize-none"
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder-white/30 focus:outline-none focus:border-cyan-300/60 focus:bg-white/7 transition-all duration-200 resize-none"
                     />
                   </div>
 
@@ -938,7 +938,7 @@ export default function GaleriePage() {
                       value={reportEmail}
                       onChange={(e) => setReportEmail(e.target.value)}
                       placeholder="votre@email.com"
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder-white/30 focus:outline-none focus:border-cyan-300/60 focus:bg-white/[0.07] transition-all duration-200"
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder-white/30 focus:outline-none focus:border-cyan-300/60 focus:bg-white/7 transition-all duration-200"
                     />
                   </div>
                 </div>

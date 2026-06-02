@@ -7,7 +7,7 @@ import type { TurnstileInstance } from "@marsidev/react-turnstile";
 import { supabase } from "@/lib/supabase";
 
 const inputClass =
-  "w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-cyan-300/60 focus:bg-white/[0.07] transition-all duration-200";
+  "w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-cyan-300/60 focus:bg-white/7 transition-all duration-200";
 const labelClass =
   "block text-xs uppercase tracking-[0.25em] text-white/50 mb-2";
 

@@ -96,7 +96,7 @@ export default function UsersSection() {
           {profiles.map((profile) => (
             <div
               key={profile.id}
-              className="flex items-center gap-4 bg-white/[0.02] border border-white/10 rounded-2xl px-5 py-4 hover:border-white/20 transition-all"
+              className="flex items-center gap-4 bg-white/2 border border-white/10 rounded-2xl px-5 py-4 hover:border-white/20 transition-all"
             >
               {/* Identity */}
               <div className="flex-1 min-w-0">

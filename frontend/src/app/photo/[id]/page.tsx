@@ -442,7 +442,7 @@ export default function PhotoPage() {
 
                 {/* Photo principale */}
                 <div
-                  className="relative w-full rounded-2xl overflow-hidden border border-white/10 bg-white/[0.03] cursor-zoom-in group"
+                  className="relative w-full rounded-2xl overflow-hidden border border-white/10 bg-white/3 cursor-zoom-in group"
                   onClick={() => {
                     if (swipeHappened.current) { swipeHappened.current = false; return; }
                     setZoomed(true);
@@ -714,7 +714,7 @@ export default function PhotoPage() {
                     <select
                       value={reportRaison}
                       onChange={(e) => setReportRaison(e.target.value)}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-cyan-300/60 focus:bg-white/[0.07] transition-all duration-200 [&>option]:bg-zinc-900"
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-cyan-300/60 focus:bg-white/7 transition-all duration-200 [&>option]:bg-zinc-900"
                     >
                       <option value="" disabled>Sélectionner une raison…</option>
                       {RAISONS.map((r) => (
@@ -733,7 +733,7 @@ export default function PhotoPage() {
                       onChange={(e) => setReportPrecision(e.target.value)}
                       rows={3}
                       placeholder="Décrivez le problème…"
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder-white/30 focus:outline-none focus:border-cyan-300/60 focus:bg-white/[0.07] transition-all duration-200 resize-none max-h-24"
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder-white/30 focus:outline-none focus:border-cyan-300/60 focus:bg-white/7 transition-all duration-200 resize-none max-h-24"
                     />
                   </div>
 
@@ -747,7 +747,7 @@ export default function PhotoPage() {
                       value={reportEmail}
                       onChange={(e) => setReportEmail(e.target.value)}
                       placeholder="votre@email.com"
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder-white/30 focus:outline-none focus:border-cyan-300/60 focus:bg-white/[0.07] transition-all duration-200"
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder-white/30 focus:outline-none focus:border-cyan-300/60 focus:bg-white/7 transition-all duration-200"
                     />
                   </div>
                 </div>

@@ -202,7 +202,7 @@ export default function MentionsLegalesPage() {
         <div className="space-y-6">
           {SECTIONS.map((section) => (
             <div key={section.num}
-              className="bg-white/[0.02] border border-white/10 backdrop-blur-md rounded-3xl p-8 md:p-10">
+              className="bg-white/2 border border-white/10 backdrop-blur-md rounded-3xl p-8 md:p-10">
               <div className="flex items-start gap-6 mb-6">
                 <span className="text-cyan-300 text-[11px] uppercase tracking-[0.35em] tabular-nums shrink-0 mt-1">
                   {section.num}
@@ -223,7 +223,7 @@ export default function MentionsLegalesPage() {
           ))}
 
           {/* Section 04 — RGPD & contact */}
-          <div className="bg-white/[0.02] border border-cyan-300/20 backdrop-blur-md rounded-3xl p-8 md:p-10">
+          <div className="bg-white/2 border border-cyan-300/20 backdrop-blur-md rounded-3xl p-8 md:p-10">
             <div className="flex items-start gap-6 mb-6">
               <span className="text-cyan-300 text-[11px] uppercase tracking-[0.35em] tabular-nums shrink-0 mt-1">
                 04

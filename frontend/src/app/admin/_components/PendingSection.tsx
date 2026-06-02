@@ -158,7 +158,7 @@ export default function PendingSection({
           {photos.map((photo) => (
             <div
               key={photo.id}
-              className="bg-white/[0.02] border border-white/10 rounded-2xl overflow-hidden hover:border-white/20 transition-all"
+              className="bg-white/2 border border-white/10 rounded-2xl overflow-hidden hover:border-white/20 transition-all"
             >
               <div className="flex gap-4 p-4">
                 {/* Thumbnail */}

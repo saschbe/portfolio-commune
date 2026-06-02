@@ -63,7 +63,7 @@ const defaultForm: FormState = {
 };
 
 const inputClass =
-  "w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-cyan-300/60 focus:bg-white/[0.07] transition-all duration-200";
+  "w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-cyan-300/60 focus:bg-white/7 transition-all duration-200";
 const labelClass =
   "block text-xs uppercase tracking-[0.25em] text-white/50 mb-2";
 
@@ -331,7 +331,7 @@ export default function LieuxSection() {
 
       {/* Add form */}
       {showAddForm && (
-        <div className="mb-10 bg-white/[0.02] border border-white/10 rounded-2xl p-6">
+        <div className="mb-10 bg-white/2 border border-white/10 rounded-2xl p-6">
           <p className="text-xs uppercase tracking-[0.3em] text-white/40 mb-6">
             Nouveau lieu
           </p>
@@ -368,7 +368,7 @@ export default function LieuxSection() {
           {lieux.map((lieu) => (
             <div
               key={lieu.id}
-              className="flex items-center gap-4 bg-white/[0.02] border border-white/10 rounded-2xl px-4 py-3 hover:border-white/20 transition-all"
+              className="flex items-center gap-4 bg-white/2 border border-white/10 rounded-2xl px-4 py-3 hover:border-white/20 transition-all"
             >
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium truncate">{lieu.nom}</p>
