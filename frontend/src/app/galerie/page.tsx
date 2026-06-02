@@ -38,12 +38,12 @@ type ActiveFilter = {
 };
 
 const VILLAGES_HAMEAUX: Record<string, string[]> = {
-  "Gemmenich":   ["Völkerich"],
-  "Hombourg":    ["Gulpen"],
-  "Montzen":     ["Montzen-Gare"],
-  "Moresnet":    ["Moresnet-Chapelle"],
-  "Sippenaeken": ["Terbruggen", "Beusdael"],
-  "Plombières":  [],
+  Gemmenich: ["Völkerich"],
+  Hombourg: ["Gulpen"],
+  Montzen: ["Montzen-Gare"],
+  Moresnet: ["Moresnet-Chapelle"],
+  Sippenaeken: ["Terbruggen", "Beusdael"],
+  Plombières: [],
 };
 const VILLAGES = Object.keys(VILLAGES_HAMEAUX);
 
@@ -59,9 +59,17 @@ const ASPECTS = [
 
 function UserIcon() {
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
-      stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"
-      strokeLinejoin="round" aria-hidden="true">
+    <svg
+      width="22"
+      height="22"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       <circle cx="12" cy="8" r="4" />
       <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
     </svg>
@@ -70,9 +78,17 @@ function UserIcon() {
 
 function FilterIcon() {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-      stroke="currentColor" strokeWidth="2" strokeLinecap="round"
-      strokeLinejoin="round" aria-hidden="true">
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
     </svg>
   );
@@ -80,9 +96,17 @@ function FilterIcon() {
 
 function FlagIcon() {
   return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
-      stroke="currentColor" strokeWidth="2" strokeLinecap="round"
-      strokeLinejoin="round" aria-hidden="true">
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
       <line x1="4" y1="22" x2="4" y2="15" />
     </svg>
@@ -92,9 +116,9 @@ function FlagIcon() {
 const RAISONS: { value: string; label: string }[] = [
   { value: "personne_non_consentante", label: "Personne non consentante" },
   { value: "informations_incorrectes", label: "Informations incorrectes" },
-  { value: "photo_non_conforme",       label: "Photo non conforme" },
-  { value: "violation_droits_auteur",  label: "Violation de droits d'auteur" },
-  { value: "autre",                    label: "Autre" },
+  { value: "photo_non_conforme", label: "Photo non conforme" },
+  { value: "violation_droits_auteur", label: "Violation de droits d'auteur" },
+  { value: "autre", label: "Autre" },
 ];
 
 // ── Page ──────────────────────────────────────────────────────────────────────
@@ -103,37 +127,41 @@ export default function GaleriePage() {
   const router = useRouter();
 
   // Auth
-  const [user, setUser]               = useState<User | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [isPrivileged, setIsPrivileged] = useState(false);
   const [userDropdown, setUserDropdown] = useState(false);
 
   // Données
-  const [photos, setPhotos]         = useState<Photo[]>([]);
+  const [photos, setPhotos] = useState<Photo[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading]       = useState(true);
+  const [loading, setLoading] = useState(true);
 
   // Panneau filtres
-  const [panelOpen, setPanelOpen]           = useState(false);
-  const [activeFilters, setActiveFilters]   = useState<ActiveFilter[]>([]);
-  const [searchValues, setSearchValues]     = useState<Record<string, string>>({});
-  const [suggestions, setSuggestions]       = useState<Record<string, string[]>>({});
-  const [focusedCat, setFocusedCat]         = useState<string | null>(null);
-  const debounceRefs    = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
-  const abortRefs       = useRef<Record<string, AbortController>>({});
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([]);
+  const [searchValues, setSearchValues] = useState<Record<string, string>>({});
+  const [suggestions, setSuggestions] = useState<Record<string, string[]>>({});
+  const [focusedCat, setFocusedCat] = useState<string | null>(null);
+  const debounceRefs = useRef<Record<string, ReturnType<typeof setTimeout>>>(
+    {},
+  );
+  const abortRefs = useRef<Record<string, AbortController>>({});
   const [filterRestaureeOui, setFilterRestaureeOui] = useState(false);
   const [filterRestaureeNon, setFilterRestaureeNon] = useState(false);
-  const [selectedVillage, setSelectedVillage]       = useState<string | null>(null);
-  const [selectedHameau, setSelectedHameau]         = useState<string | null>(null);
+  const [selectedVillage, setSelectedVillage] = useState<string | null>(null);
+  const [selectedHameau, setSelectedHameau] = useState<string | null>(null);
 
   // Signalement
   const [reportingPhoto, setReportingPhoto] = useState<Photo | null>(null);
-  const [reportRaison, setReportRaison]     = useState("");
+  const [reportRaison, setReportRaison] = useState("");
   const [reportPrecision, setReportPrecision] = useState("");
-  const [reportEmail, setReportEmail]       = useState("");
-  const [reportLoading, setReportLoading]   = useState(false);
-  const [reportSuccess, setReportSuccess]   = useState(false);
-  const [reportError, setReportError]       = useState("");
-  const [reportTurnstileToken, setReportTurnstileToken] = useState<string | null>(null);
+  const [reportEmail, setReportEmail] = useState("");
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportSuccess, setReportSuccess] = useState(false);
+  const [reportError, setReportError] = useState("");
+  const [reportTurnstileToken, setReportTurnstileToken] = useState<
+    string | null
+  >(null);
   const reportTurnstileRef = useRef<TurnstileInstance>(null);
 
   // ── Auth ────────────────────────────────────────────────────────────────────
@@ -143,16 +171,22 @@ export default function GaleriePage() {
       setUser(data.user);
       if (data.user) fetchRole(data.user.id);
     });
-    const { data: listener } = supabase.auth.onAuthStateChange((_e, session) => {
-      setUser(session?.user ?? null);
-      if (session?.user) fetchRole(session.user.id);
-      else setIsPrivileged(false);
-    });
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      (_e, session) => {
+        setUser(session?.user ?? null);
+        if (session?.user) fetchRole(session.user.id);
+        else setIsPrivileged(false);
+      },
+    );
     return () => listener.subscription.unsubscribe();
   }, []);
 
   async function fetchRole(userId: string) {
-    const { data } = await supabase.from("profiles").select("role").eq("id", userId).single();
+    const { data } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", userId)
+      .single();
     setIsPrivileged(["admin", "moderator"].includes(data?.role ?? ""));
   }
 
@@ -193,7 +227,10 @@ export default function GaleriePage() {
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") {
-        if (reportingPhoto) { closeReport(); return; }
+        if (reportingPhoto) {
+          closeReport();
+          return;
+        }
         if (panelOpen) setPanelOpen(false);
       }
     }
@@ -248,44 +285,70 @@ export default function GaleriePage() {
       .gte("created_at", oneHourAgo);
 
     if (!countError && (recentReports ?? 0) >= 3) {
-      setReportError("Limite atteinte : vous ne pouvez pas envoyer plus de 3 signalements par heure.");
+      setReportError(
+        "Limite atteinte : vous ne pouvez pas envoyer plus de 3 signalements par heure.",
+      );
       setReportLoading(false);
       return;
     }
 
-    const { data: insertData, error } = await supabase.from("signalements").insert({
-      photo_id: reportingPhoto.id,
-      raison: reportRaison,
-      details: reportPrecision.trim() || null,
-      email: reportEmail.trim() || null,
-      user_id: user!.id,
-    }).select();
-    console.log("[signalement] insert →", { data: insertData, error, errorJson: JSON.stringify(error) });
+    const { data: insertData, error } = await supabase
+      .from("signalements")
+      .insert({
+        photo_id: reportingPhoto.id,
+        raison: reportRaison,
+        details: reportPrecision.trim() || null,
+        email: reportEmail.trim() || null,
+        user_id: user!.id,
+      })
+      .select();
+    console.log("[signalement] insert →", {
+      data: insertData,
+      error,
+      errorJson: JSON.stringify(error),
+    });
     if (!error) {
-      supabase.from("photos").update({ status: "signaled" }).eq("id", reportingPhoto.id)
-        .then(({ error: e }) => console.log("[signalement] photo signaled →", e ?? "ok"));
-      const FUNCTIONS_URL = "https://fjglbztexnntivdrjhbv.supabase.co/functions/v1";
+      supabase
+        .from("photos")
+        .update({ status: "signaled" })
+        .eq("id", reportingPhoto.id)
+        .then(({ error: e }) =>
+          console.log("[signalement] photo signaled →", e ?? "ok"),
+        );
+      const FUNCTIONS_URL =
+        "https://fjglbztexnntivdrjhbv.supabase.co/functions/v1";
       const ANON_KEY = "sb_publishable_xMlW5BYoriE-iDe8JsLq1Q_lU3Pcjwj";
-      const ANON_JWT = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZqZ2xienRleG5udGl2ZHJqaGJ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgyNzE1NzksImV4cCI6MjA2Mzg0NzU3OX0.vIyVPvgSEDRtDmOEsGKMELMxJ6F9_h5DGT9KFTnMGGU";
+      const ANON_JWT =
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZqZ2xienRleG5udGl2ZHJqaGJ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgyNzE1NzksImV4cCI6MjA2Mzg0NzU3OX0.vIyVPvgSEDRtDmOEsGKMELMxJ6F9_h5DGT9KFTnMGGU";
 
       const authHeaders = {
         "Content-Type": "application/json",
-        "apikey": ANON_KEY,
-        "Authorization": `Bearer ${ANON_KEY}`,
+        apikey: ANON_KEY,
+        Authorization: `Bearer ${ANON_KEY}`,
       };
       const reporterHeaders = {
         "Content-Type": "application/json",
-        "apikey": ANON_JWT,
-        "Authorization": `Bearer ${ANON_JWT}`,
+        apikey: ANON_JWT,
+        Authorization: `Bearer ${ANON_JWT}`,
       };
 
       fetch(`${FUNCTIONS_URL}/notify-new-photo`, {
         method: "POST",
         headers: authHeaders,
-        body: JSON.stringify({ photo: { title: "Signalement reçu", village: reportRaison } }),
+        body: JSON.stringify({
+          photo: { title: "Signalement reçu", village: reportRaison },
+        }),
       })
-        .then(async (res) => console.log("[signalement] notify-admin →", res.status, await res.text()))
-        .catch((err) => console.error("[signalement] notify-admin error →", err));
+        .then(async (res) =>
+          console.log(
+            "[signalement] notify-admin →",
+            res.status,
+            await res.text(),
+          ),
+        )
+        .catch((err) =>
+          console.error("[signalement] notify-admin error →", err),
+        );
 
       if (reportEmail.trim()) {
         fetch(`${FUNCTIONS_URL}/notify-reporter`, {
@@ -297,8 +360,16 @@ export default function GaleriePage() {
             raison: reportRaison,
           }),
         })
-          .then(async (res) => console.log("[signalement] notify-reporter →", res.status, await res.text()))
-          .catch((err) => console.error("[signalement] notify-reporter error →", err));
+          .then(async (res) =>
+            console.log(
+              "[signalement] notify-reporter →",
+              res.status,
+              await res.text(),
+            ),
+          )
+          .catch((err) =>
+            console.error("[signalement] notify-reporter error →", err),
+          );
       }
     }
     setReportLoading(false);
@@ -308,65 +379,91 @@ export default function GaleriePage() {
 
   // ── Autocomplétion ───────────────────────────────────────────────────────────
 
-  const fetchSuggestions = useCallback(async (catId: string, colonne: string, query: string) => {
-    if (!query.trim()) { setSuggestions(prev => ({ ...prev, [catId]: [] })); return; }
+  const fetchSuggestions = useCallback(
+    async (catId: string, colonne: string, query: string) => {
+      if (!query.trim()) {
+        setSuggestions((prev) => ({ ...prev, [catId]: [] }));
+        return;
+      }
 
-    // Boolean column: suggestions statiques, pas de requête réseau
-    if (colonne === "restored") {
-      const opts = ["Oui", "Non"].filter(s => s.toLowerCase().includes(query.toLowerCase()));
-      setSuggestions(prev => ({ ...prev, [catId]: opts }));
-      return;
-    }
+      // Boolean column: suggestions statiques, pas de requête réseau
+      if (colonne === "restored") {
+        const opts = ["Oui", "Non"].filter((s) =>
+          s.toLowerCase().includes(query.toLowerCase()),
+        );
+        setSuggestions((prev) => ({ ...prev, [catId]: opts }));
+        return;
+      }
 
-    // Annuler la requête précédente pour ce champ si elle est encore en vol
-    const controllers = abortRefs.current;
-    controllers[catId]?.abort();
-    const controller = new AbortController();
-    controllers[catId] = controller;
+      // Annuler la requête précédente pour ce champ si elle est encore en vol
+      const controllers = abortRefs.current;
+      controllers[catId]?.abort();
+      const controller = new AbortController();
+      controllers[catId] = controller;
 
-    const { data, error } = await supabase
-      .from("photos")
-      .select(colonne)
-      .or("status.eq.approved,status.is.null")
-      .ilike(colonne, `%${query}%`)
-      .limit(30)
-      .abortSignal(controller.signal);
+      const { data, error } = await supabase
+        .from("photos")
+        .select(colonne)
+        .or("status.eq.approved,status.is.null")
+        .ilike(colonne, `%${query}%`)
+        .limit(30)
+        .abortSignal(controller.signal);
 
-    // Ignorer silencieusement les requêtes annulées
-    if (controller.signal.aborted) return;
-    if (error) { setSuggestions(prev => ({ ...prev, [catId]: [] })); return; }
+      // Ignorer silencieusement les requêtes annulées
+      if (controller.signal.aborted) return;
+      if (error) {
+        setSuggestions((prev) => ({ ...prev, [catId]: [] }));
+        return;
+      }
 
-    const unique = [
-      ...new Set(
-        (data ?? [])
-          .map((r) => String((r as unknown as Record<string, unknown>)[colonne] ?? ""))
-          .filter(Boolean)
-      ),
-    ].slice(0, 7);
-    setSuggestions(prev => ({ ...prev, [catId]: unique }));
-  }, []);
+      const unique = [
+        ...new Set(
+          (data ?? [])
+            .map((r) =>
+              String((r as unknown as Record<string, unknown>)[colonne] ?? ""),
+            )
+            .filter(Boolean),
+        ),
+      ].slice(0, 7);
+      setSuggestions((prev) => ({ ...prev, [catId]: unique }));
+    },
+    [],
+  );
 
   function handleSearchChange(catId: string, colonne: string, value: string) {
-    setSearchValues(prev => ({ ...prev, [catId]: value }));
+    setSearchValues((prev) => ({ ...prev, [catId]: value }));
     if (debounceRefs.current[catId]) clearTimeout(debounceRefs.current[catId]);
     if (!value.trim()) {
-      setSuggestions(prev => ({ ...prev, [catId]: [] }));
+      setSuggestions((prev) => ({ ...prev, [catId]: [] }));
       return;
     }
-    debounceRefs.current[catId] = setTimeout(() => fetchSuggestions(catId, colonne, value), 300);
+    debounceRefs.current[catId] = setTimeout(
+      () => fetchSuggestions(catId, colonne, value),
+      300,
+    );
   }
 
   function addFilter(cat: Category, value: string) {
     if (!value.trim()) return;
-    if (activeFilters.some(f => f.colonne === cat.colonne && f.value.toLowerCase() === value.toLowerCase())) return;
-    setActiveFilters(prev => [...prev, { colonne: cat.colonne, nom: cat.nom, value }]);
-    setSearchValues(prev => ({ ...prev, [cat.id]: "" }));
-    setSuggestions(prev => ({ ...prev, [cat.id]: [] }));
+    if (
+      activeFilters.some(
+        (f) =>
+          f.colonne === cat.colonne &&
+          f.value.toLowerCase() === value.toLowerCase(),
+      )
+    )
+      return;
+    setActiveFilters((prev) => [
+      ...prev,
+      { colonne: cat.colonne, nom: cat.nom, value },
+    ]);
+    setSearchValues((prev) => ({ ...prev, [cat.id]: "" }));
+    setSuggestions((prev) => ({ ...prev, [cat.id]: [] }));
     setFocusedCat(null);
   }
 
   function removeFilter(i: number) {
-    setActiveFilters(prev => prev.filter((_, idx) => idx !== i));
+    setActiveFilters((prev) => prev.filter((_, idx) => idx !== i));
   }
 
   // ── Filtrage côté client ─────────────────────────────────────────────────────
@@ -374,24 +471,36 @@ export default function GaleriePage() {
   // Restaurée : filtre actif seulement si un seul des deux boutons est activé
   const restoreeFiltered = filterRestaureeOui !== filterRestaureeNon;
 
-  const filteredPhotos = (activeFilters.length === 0 && !restoreeFiltered && !selectedVillage && !selectedHameau)
-    ? photos
-    : photos.filter(photo => {
-        if (selectedVillage && photo.village !== selectedVillage) return false;
-        if (selectedHameau && photo.hameau !== selectedHameau) return false;
-        const passesFilters = activeFilters.every(f => {
-          const val = (photo as unknown as Record<string, unknown>)[f.colonne];
-          if (val === null || val === undefined) return false;
-          if (typeof val === "boolean") {
-            const v = f.value.toLowerCase();
-            return val ? (v === "oui" || v === "true") : (v === "non" || v === "false");
-          }
-          return String(val).toLowerCase() === f.value.toLowerCase();
+  const filteredPhotos =
+    activeFilters.length === 0 &&
+    !restoreeFiltered &&
+    !selectedVillage &&
+    !selectedHameau
+      ? photos
+      : photos.filter((photo) => {
+          if (selectedVillage && photo.village !== selectedVillage)
+            return false;
+          if (selectedHameau && photo.hameau !== selectedHameau) return false;
+          const passesFilters = activeFilters.every((f) => {
+            const val = (photo as unknown as Record<string, unknown>)[
+              f.colonne
+            ];
+            if (val === null || val === undefined) return false;
+            if (typeof val === "boolean") {
+              const v = f.value.toLowerCase();
+              return val
+                ? v === "oui" || v === "true"
+                : v === "non" || v === "false";
+            }
+            return String(val).toLowerCase() === f.value.toLowerCase();
+          });
+          if (!passesFilters) return false;
+          if (restoreeFiltered)
+            return filterRestaureeOui
+              ? photo.restored === true
+              : photo.restored === false;
+          return true;
         });
-        if (!passesFilters) return false;
-        if (restoreeFiltered) return filterRestaureeOui ? photo.restored === true : photo.restored === false;
-        return true;
-      });
 
   const totalActiveFilters =
     activeFilters.length +
@@ -401,43 +510,57 @@ export default function GaleriePage() {
 
   const displayName =
     (user?.user_metadata?.name as string | undefined) ??
-    user?.email?.split("@")[0] ?? "";
+    user?.email?.split("@")[0] ??
+    "";
 
-  const spaceHref  = isPrivileged ? "/admin" : "/dashboard";
+  const spaceHref = isPrivileged ? "/admin" : "/dashboard";
   const spaceLabel = isPrivileged ? "Administration" : "Mon espace";
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
     <div className="min-h-screen bg-black text-white">
-
       {/* ── Header ───────────────────────────────────────────────────────── */}
       <header className="fixed top-0 left-0 w-full z-50 backdrop-blur-xl bg-black/50 border-b border-white/10">
         <div className="max-w-7xl mx-auto px-6 py-5 flex items-center justify-between gap-10">
-
           {/* Logo */}
           <Link href="/" className="shrink-0">
             <Image
               src="/images/logo-white.png"
               alt="Plombières en Images"
-              width={0} height={0}
+              width={0}
+              height={0}
               loading="eager"
               sizes="100vw"
-              className="w-[130px] md:w-[190px] lg:w-[280px] xl:w-[320px] h-auto drop-shadow-[0_0_12px_rgba(255,255,255,0.35)]"
+              className="w-32.5 md:w-47.5 lg:w-70 xl:w-[320px] h-auto drop-shadow-[0_0_12px_rgba(255,255,255,0.35)]"
             />
           </Link>
 
           {/* Nav desktop */}
           <nav className="hidden md:flex items-center gap-10 ml-10 text-sm uppercase tracking-[0.2em] text-white">
-            <Link href="/" className="hover:text-cyan-300 transition-all duration-300">Accueil</Link>
+            <Link
+              href="/"
+              className="hover:text-cyan-300 transition-all duration-300"
+            >
+              Accueil
+            </Link>
 
             {/* Compteur de photos */}
             {!loading && (
               <span className="tabular-nums tracking-[0.2em] text-sm uppercase">
-                {totalActiveFilters > 0
-                  ? <span><span className="text-cyan-300 font-medium">{filteredPhotos.length}</span><span className="text-white/30"> / {photos.length} photos</span></span>
-                  : <span className="text-white/50">{photos.length} photos</span>
-                }
+                {totalActiveFilters > 0 ? (
+                  <span>
+                    <span className="text-cyan-300 font-medium">
+                      {filteredPhotos.length}
+                    </span>
+                    <span className="text-white/30">
+                      {" "}
+                      / {photos.length} photos
+                    </span>
+                  </span>
+                ) : (
+                  <span className="text-white/50">{photos.length} photos</span>
+                )}
               </span>
             )}
 
@@ -472,23 +595,35 @@ export default function GaleriePage() {
                 {userDropdown && (
                   <div className="absolute right-0 top-full mt-3 w-48 bg-zinc-950/95 backdrop-blur-md border border-white/10 rounded-2xl overflow-hidden shadow-[0_8px_40px_rgba(0,0,0,0.6)]">
                     <div className="px-4 py-3 border-b border-white/5">
-                      <p className="text-xs text-white/60 truncate">{displayName}</p>
-                      <p className="text-[10px] text-white/30 truncate mt-0.5">{user.email}</p>
+                      <p className="text-xs text-white/60 truncate">
+                        {displayName}
+                      </p>
+                      <p className="text-[10px] text-white/30 truncate mt-0.5">
+                        {user.email}
+                      </p>
                     </div>
-                    <Link href={spaceHref} onClick={() => setUserDropdown(false)}
-                      className="flex items-center px-4 py-3 text-xs uppercase tracking-[0.2em] text-white/70 hover:text-cyan-300 hover:bg-white/5 transition-all">
+                    <Link
+                      href={spaceHref}
+                      onClick={() => setUserDropdown(false)}
+                      className="flex items-center px-4 py-3 text-xs uppercase tracking-[0.2em] text-white/70 hover:text-cyan-300 hover:bg-white/5 transition-all"
+                    >
                       {spaceLabel}
                     </Link>
-                    <button onClick={handleLogout}
-                      className="w-full text-left px-4 py-3 text-xs uppercase tracking-[0.2em] text-white/40 hover:text-red-400 hover:bg-white/5 transition-all border-t border-white/5">
+                    <button
+                      onClick={handleLogout}
+                      className="w-full text-left px-4 py-3 text-xs uppercase tracking-[0.2em] text-white/40 hover:text-red-400 hover:bg-white/5 transition-all border-t border-white/5"
+                    >
                       Se déconnecter
                     </button>
                   </div>
                 )}
               </div>
             ) : (
-              <Link href="/login" aria-label="Se connecter"
-                className="text-white/70 hover:text-cyan-300 transition-all duration-300">
+              <Link
+                href="/login"
+                aria-label="Se connecter"
+                className="text-white/70 hover:text-cyan-300 transition-all duration-300"
+              >
                 <UserIcon />
               </Link>
             )}
@@ -496,7 +631,10 @@ export default function GaleriePage() {
 
           {/* Mobile : accueil + filtres + user */}
           <div className="md:hidden flex items-center gap-3">
-            <Link href="/" className="text-xs uppercase tracking-[0.2em] text-white/70 hover:text-cyan-300 transition-all duration-300">
+            <Link
+              href="/"
+              className="text-xs uppercase tracking-[0.2em] text-white/70 hover:text-cyan-300 transition-all duration-300"
+            >
               Accueil
             </Link>
             <button
@@ -517,26 +655,37 @@ export default function GaleriePage() {
             </button>
             {user ? (
               <div className="relative" data-user-dropdown="">
-                <button onClick={() => setUserDropdown(!userDropdown)} aria-label="Mon compte"
-                  className={`transition-colors duration-300 ${userDropdown ? "text-cyan-300" : "text-white/60 hover:text-cyan-300"}`}>
+                <button
+                  onClick={() => setUserDropdown(!userDropdown)}
+                  aria-label="Mon compte"
+                  className={`transition-colors duration-300 ${userDropdown ? "text-cyan-300" : "text-white/60 hover:text-cyan-300"}`}
+                >
                   <UserIcon />
                 </button>
                 {userDropdown && (
                   <div className="absolute right-0 top-full mt-3 w-48 bg-zinc-950/95 backdrop-blur-md border border-white/10 rounded-2xl overflow-hidden shadow-[0_8px_40px_rgba(0,0,0,0.6)]">
-                    <Link href={spaceHref} onClick={() => setUserDropdown(false)}
-                      className="flex items-center px-4 py-3 text-xs uppercase tracking-[0.2em] text-white/70 hover:text-cyan-300 hover:bg-white/5 transition-all">
+                    <Link
+                      href={spaceHref}
+                      onClick={() => setUserDropdown(false)}
+                      className="flex items-center px-4 py-3 text-xs uppercase tracking-[0.2em] text-white/70 hover:text-cyan-300 hover:bg-white/5 transition-all"
+                    >
                       {spaceLabel}
                     </Link>
-                    <button onClick={handleLogout}
-                      className="w-full text-left px-4 py-3 text-xs uppercase tracking-[0.2em] text-white/40 hover:text-red-400 hover:bg-white/5 transition-all border-t border-white/5">
+                    <button
+                      onClick={handleLogout}
+                      className="w-full text-left px-4 py-3 text-xs uppercase tracking-[0.2em] text-white/40 hover:text-red-400 hover:bg-white/5 transition-all border-t border-white/5"
+                    >
                       Se déconnecter
                     </button>
                   </div>
                 )}
               </div>
             ) : (
-              <Link href="/login" aria-label="Se connecter"
-                className="text-white/60 hover:text-cyan-300 transition-all duration-300">
+              <Link
+                href="/login"
+                aria-label="Se connecter"
+                className="text-white/60 hover:text-cyan-300 transition-all duration-300"
+              >
                 <UserIcon />
               </Link>
             )}
@@ -546,7 +695,6 @@ export default function GaleriePage() {
 
       {/* ── Contenu ──────────────────────────────────────────────────────── */}
       <div className="max-w-7xl mx-auto px-6 py-12">
-
         {/* Titre */}
         <div className="mb-10">
           <h1 className="text-3xl md:text-5xl font-light uppercase tracking-[0.15em] leading-[1.2]">
@@ -559,7 +707,13 @@ export default function GaleriePage() {
           <div className="flex flex-col gap-3 mb-10">
             <div className="flex items-center gap-4">
               <button
-                onClick={() => { setActiveFilters([]); setFilterRestaureeOui(false); setFilterRestaureeNon(false); setSelectedVillage(null); setSelectedHameau(null); }}
+                onClick={() => {
+                  setActiveFilters([]);
+                  setFilterRestaureeOui(false);
+                  setFilterRestaureeNon(false);
+                  setSelectedVillage(null);
+                  setSelectedHameau(null);
+                }}
                 className="text-[10px] uppercase tracking-[0.25em] text-white/30 hover:text-white/60 transition-colors"
               >
                 Tout effacer
@@ -573,10 +727,15 @@ export default function GaleriePage() {
                   <span className="text-cyan-300/50">Village :</span>
                   {selectedVillage}
                   <button
-                    onClick={() => { setSelectedVillage(null); setSelectedHameau(null); }}
+                    onClick={() => {
+                      setSelectedVillage(null);
+                      setSelectedHameau(null);
+                    }}
                     aria-label="Supprimer le filtre village"
                     className="text-cyan-300/50 hover:text-cyan-300 leading-none transition-colors"
-                  >✕</button>
+                  >
+                    ✕
+                  </button>
                 </span>
               )}
               {selectedHameau && (
@@ -587,18 +746,23 @@ export default function GaleriePage() {
                     onClick={() => setSelectedHameau(null)}
                     aria-label="Supprimer le filtre hameau"
                     className="text-cyan-300/50 hover:text-cyan-300 leading-none transition-colors"
-                  >✕</button>
+                  >
+                    ✕
+                  </button>
                 </span>
               )}
               {activeFilters.map((f, i) => (
-                <span key={i}
+                <span
+                  key={i}
                   className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-cyan-300/10 border border-cyan-300/30 text-cyan-300 text-[10px] uppercase tracking-[0.15em]"
                 >
                   <span className="text-cyan-300/50">{f.nom} :</span>
                   {f.value}
-                  <button onClick={() => removeFilter(i)}
+                  <button
+                    onClick={() => removeFilter(i)}
                     aria-label={`Supprimer ${f.nom}`}
-                    className="text-cyan-300/50 hover:text-cyan-300 leading-none transition-colors">
+                    className="text-cyan-300/50 hover:text-cyan-300 leading-none transition-colors"
+                  >
                     ✕
                   </button>
                 </span>
@@ -614,11 +778,20 @@ export default function GaleriePage() {
           </p>
         ) : filteredPhotos.length === 0 ? (
           <div className="text-center py-28 border border-white/5 rounded-3xl">
-            <p className="text-white/20 uppercase tracking-[0.35em] text-xs mb-4">Aucune photo</p>
+            <p className="text-white/20 uppercase tracking-[0.35em] text-xs mb-4">
+              Aucune photo
+            </p>
             {totalActiveFilters > 0 && (
               <button
-                onClick={() => { setActiveFilters([]); setFilterRestaureeOui(false); setFilterRestaureeNon(false); setSelectedVillage(null); setSelectedHameau(null); }}
-                className="text-cyan-300/50 hover:text-cyan-300 text-[10px] uppercase tracking-[0.25em] transition-colors">
+                onClick={() => {
+                  setActiveFilters([]);
+                  setFilterRestaureeOui(false);
+                  setFilterRestaureeNon(false);
+                  setSelectedVillage(null);
+                  setSelectedHameau(null);
+                }}
+                className="text-cyan-300/50 hover:text-cyan-300 text-[10px] uppercase tracking-[0.25em] transition-colors"
+              >
                 Effacer les filtres →
               </button>
             )}
@@ -626,13 +799,16 @@ export default function GaleriePage() {
         ) : (
           <div className="columns-2 md:columns-3 xl:columns-4 gap-x-3">
             {filteredPhotos.map((photo, index) => (
-              <Link key={photo.id}
+              <Link
+                key={photo.id}
                 href={`/photo/${photo.id}`}
                 className="block break-inside-avoid mb-3 group relative overflow-hidden rounded-3xl border border-white/10 bg-white/3 backdrop-blur-md transition-all duration-700 hover:-translate-y-1 hover:border-cyan-300/30 hover:bg-white/5 hover:shadow-[0_20px_80px_rgba(34,211,238,0.10)]"
               >
                 <div className={`relative ${ASPECTS[index % ASPECTS.length]}`}>
                   <Image
-                    src={imageUrl(photo.src, "thumb")} alt={photo.title} fill
+                    src={imageUrl(photo.src, "thumb")}
+                    alt={photo.title}
+                    fill
                     sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
                     priority={index < 3}
                     loading={index < 3 ? "eager" : "lazy"}
@@ -654,7 +830,10 @@ export default function GaleriePage() {
                   </div>
                 )}
                 <button
-                  onClick={(e) => { e.preventDefault(); openReport(photo, e); }}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    openReport(photo, e);
+                  }}
                   aria-label="Signaler cette photo"
                   className="absolute top-3 left-3 opacity-0 group-hover:opacity-100 transition-all duration-300 p-1.5 rounded-full bg-black/50 backdrop-blur-sm text-white/40 hover:text-red-400 hover:bg-black/70"
                 >
@@ -677,12 +856,15 @@ export default function GaleriePage() {
       )}
 
       {/* Panneau latéral */}
-      <div className={`fixed top-16 left-0 h-[calc(100vh-4rem)] overflow-hidden z-40 w-80 bg-zinc-950 border-r border-white/10 flex flex-col shadow-[4px_0_40px_rgba(0,0,0,0.6)] transition-transform duration-300 ease-out ${panelOpen ? "translate-x-0" : "-translate-x-full"}`}>
-
+      <div
+        className={`fixed top-16 left-0 h-[calc(100vh-4rem)] overflow-hidden z-40 w-80 bg-zinc-950 border-r border-white/10 flex flex-col shadow-[4px_0_40px_rgba(0,0,0,0.6)] transition-transform duration-300 ease-out ${panelOpen ? "translate-x-0" : "-translate-x-full"}`}
+      >
         {/* En-tête panneau */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-white/10 shrink-0">
           <div>
-            <p className="text-cyan-300 uppercase tracking-[0.35em] text-xs mb-0.5">Filtres</p>
+            <p className="text-cyan-300 uppercase tracking-[0.35em] text-xs mb-0.5">
+              Filtres
+            </p>
             {totalActiveFilters > 0 && (
               <p className="text-white/30 text-[10px] uppercase tracking-[0.2em]">
                 {totalActiveFilters} actif{totalActiveFilters > 1 ? "s" : ""}
@@ -699,7 +881,6 @@ export default function GaleriePage() {
 
         {/* Catégories */}
         <div className="flex-1 overflow-y-auto px-6 py-6 space-y-8">
-
           {/* Village */}
           <div>
             <label className="block text-[10px] uppercase tracking-[0.3em] text-white/40 mb-3">
@@ -740,7 +921,9 @@ export default function GaleriePage() {
                 {VILLAGES_HAMEAUX[selectedVillage].map((h) => (
                   <button
                     key={h}
-                    onClick={() => setSelectedHameau(selectedHameau === h ? null : h)}
+                    onClick={() =>
+                      setSelectedHameau(selectedHameau === h ? null : h)
+                    }
                     className={`px-3 py-1.5 rounded-full border text-[11px] uppercase tracking-[0.2em] transition-all duration-200 ${
                       selectedHameau === h
                         ? "bg-cyan-300/15 border-cyan-300/50 text-cyan-300"
@@ -761,10 +944,14 @@ export default function GaleriePage() {
           ) : (
             categories.map((cat) => {
               const currentSuggestions = suggestions[cat.id] ?? [];
-              const currentValue       = searchValues[cat.id] ?? "";
-              const isFocused          = focusedCat === cat.id;
-              const showSuggestions    = currentValue.trim().length > 0 && currentSuggestions.length > 0;
-              const showFreeText       = isFocused && currentValue.trim().length > 0 && currentSuggestions.length === 0;
+              const currentValue = searchValues[cat.id] ?? "";
+              const isFocused = focusedCat === cat.id;
+              const showSuggestions =
+                currentValue.trim().length > 0 && currentSuggestions.length > 0;
+              const showFreeText =
+                isFocused &&
+                currentValue.trim().length > 0 &&
+                currentSuggestions.length === 0;
 
               return (
                 <div key={cat.id}>
@@ -775,7 +962,7 @@ export default function GaleriePage() {
                   {cat.colonne === "restored" ? (
                     <div className="flex gap-2">
                       <button
-                        onClick={() => setFilterRestaureeOui(v => !v)}
+                        onClick={() => setFilterRestaureeOui((v) => !v)}
                         className={`flex-1 py-2 rounded-xl border text-xs uppercase tracking-[0.25em] transition-all duration-200 ${
                           filterRestaureeOui
                             ? "bg-cyan-300/10 border-cyan-300/40 text-cyan-300"
@@ -785,7 +972,7 @@ export default function GaleriePage() {
                         Oui
                       </button>
                       <button
-                        onClick={() => setFilterRestaureeNon(v => !v)}
+                        onClick={() => setFilterRestaureeNon((v) => !v)}
                         className={`flex-1 py-2 rounded-xl border text-xs uppercase tracking-[0.25em] transition-all duration-200 ${
                           filterRestaureeNon
                             ? "bg-cyan-300/10 border-cyan-300/40 text-cyan-300"
@@ -802,18 +989,35 @@ export default function GaleriePage() {
                         <input
                           type="text"
                           value={currentValue}
-                          onChange={(e) => handleSearchChange(cat.id, cat.colonne, e.target.value)}
+                          onChange={(e) =>
+                            handleSearchChange(
+                              cat.id,
+                              cat.colonne,
+                              e.target.value,
+                            )
+                          }
                           onFocus={() => setFocusedCat(cat.id)}
-                          onBlur={() => setTimeout(() => {
-                            setFocusedCat(null);
-                            setSuggestions(prev => ({ ...prev, [cat.id]: [] }));
-                          }, 150)}
+                          onBlur={() =>
+                            setTimeout(() => {
+                              setFocusedCat(null);
+                              setSuggestions((prev) => ({
+                                ...prev,
+                                [cat.id]: [],
+                              }));
+                            }, 150)
+                          }
                           onKeyDown={(e) => {
                             if (e.key === "Enter" && currentValue.trim())
                               addFilter(cat, currentValue.trim());
                             if (e.key === "Escape") {
-                              setSearchValues(prev => ({ ...prev, [cat.id]: "" }));
-                              setSuggestions(prev => ({ ...prev, [cat.id]: [] }));
+                              setSearchValues((prev) => ({
+                                ...prev,
+                                [cat.id]: "",
+                              }));
+                              setSuggestions((prev) => ({
+                                ...prev,
+                                [cat.id]: [],
+                              }));
                             }
                           }}
                           placeholder="Rechercher…"
@@ -833,7 +1037,9 @@ export default function GaleriePage() {
                             ))}
                             {showFreeText && (
                               <button
-                                onMouseDown={() => addFilter(cat, currentValue.trim())}
+                                onMouseDown={() =>
+                                  addFilter(cat, currentValue.trim())
+                                }
                                 className="w-full text-left px-4 py-2.5 text-sm text-white/50 hover:text-cyan-300 hover:bg-white/5 transition-all border-t border-white/5"
                               >
                                 Filtrer par « {currentValue.trim()} »
@@ -843,13 +1049,17 @@ export default function GaleriePage() {
                         )}
                       </div>
 
-                      {activeFilters.filter(f => f.colonne === cat.colonne).length > 0 && (
+                      {activeFilters.filter((f) => f.colonne === cat.colonne)
+                        .length > 0 && (
                         <div className="flex flex-wrap gap-1.5 mt-2">
                           {activeFilters
-                            .map((f, i) => f.colonne === cat.colonne ? { f, i } : null)
+                            .map((f, i) =>
+                              f.colonne === cat.colonne ? { f, i } : null,
+                            )
                             .filter(Boolean)
                             .map((item) => (
-                              <span key={item!.i}
+                              <span
+                                key={item!.i}
                                 className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-cyan-300/10 border border-cyan-300/30 text-cyan-300 text-[9px] uppercase tracking-[0.15em]"
                               >
                                 {item!.f.value}
@@ -875,7 +1085,13 @@ export default function GaleriePage() {
         {totalActiveFilters > 0 && (
           <div className="shrink-0 px-6 py-4 border-t border-white/10">
             <button
-              onClick={() => { setActiveFilters([]); setFilterRestaureeOui(false); setFilterRestaureeNon(false); setSelectedVillage(null); setSelectedHameau(null); }}
+              onClick={() => {
+                setActiveFilters([]);
+                setFilterRestaureeOui(false);
+                setFilterRestaureeNon(false);
+                setSelectedVillage(null);
+                setSelectedHameau(null);
+              }}
               className="w-full py-2.5 rounded-full border border-white/10 text-white/40 text-xs uppercase tracking-[0.25em] hover:border-white/20 hover:text-white/60 transition-all"
             >
               Effacer tous les filtres
@@ -893,36 +1109,60 @@ export default function GaleriePage() {
           >
             {reportSuccess ? (
               <div className="text-center py-4">
-                <p className="text-emerald-400 uppercase tracking-[0.3em] text-xs mb-2">Signalement envoyé</p>
-                <p className="text-white/40 text-sm">Merci, nous examinerons votre signalement.</p>
+                <p className="text-emerald-400 uppercase tracking-[0.3em] text-xs mb-2">
+                  Signalement envoyé
+                </p>
+                <p className="text-white/40 text-sm">
+                  Merci, nous examinerons votre signalement.
+                </p>
               </div>
             ) : (
               <>
                 <div className="flex items-start justify-between mb-6">
                   <div>
-                    <p className="text-[10px] uppercase tracking-[0.35em] text-white/40 mb-1">Signaler une photo</p>
-                    <p className="text-white text-sm font-light truncate max-w-65">{reportingPhoto.title}</p>
+                    <p className="text-[10px] uppercase tracking-[0.35em] text-white/40 mb-1">
+                      Signaler une photo
+                    </p>
+                    <p className="text-white text-sm font-light truncate max-w-65">
+                      {reportingPhoto.title}
+                    </p>
                   </div>
-                  <button onClick={closeReport} className="text-white/30 hover:text-white text-2xl leading-none transition-colors">✕</button>
+                  <button
+                    onClick={closeReport}
+                    className="text-white/30 hover:text-white text-2xl leading-none transition-colors"
+                  >
+                    ✕
+                  </button>
                 </div>
 
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-xs uppercase tracking-[0.25em] text-white/50 mb-2">Raison *</label>
+                    <label className="block text-xs uppercase tracking-[0.25em] text-white/50 mb-2">
+                      Raison *
+                    </label>
                     <select
                       value={reportRaison}
                       onChange={(e) => setReportRaison(e.target.value)}
                       className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-cyan-300/60 focus:bg-white/7 transition-all duration-200 [&>option]:bg-zinc-900"
                     >
-                      <option value="" disabled>Sélectionner une raison…</option>
+                      <option value="" disabled>
+                        Sélectionner une raison…
+                      </option>
                       {RAISONS.map((r) => (
-                        <option key={r.value} value={r.value}>{r.label}</option>
+                        <option key={r.value} value={r.value}>
+                          {r.label}
+                        </option>
                       ))}
                     </select>
                   </div>
 
                   <div>
-                    <label className="block text-xs uppercase tracking-[0.25em] text-white/50 mb-2">Précision <span className="text-white/25 normal-case tracking-normal">optionnel</span></label>
+                    <label className="block text-xs uppercase tracking-[0.25em] text-white/50 mb-2">
+                      Précision{" "}
+                      <span className="text-white/25 normal-case tracking-normal">
+                        optionnel
+                      </span>
+                    </label>
                     <textarea
                       value={reportPrecision}
                       onChange={(e) => setReportPrecision(e.target.value)}
@@ -933,7 +1173,12 @@ export default function GaleriePage() {
                   </div>
 
                   <div>
-                    <label className="block text-xs uppercase tracking-[0.25em] text-white/50 mb-2">Email <span className="text-white/25 normal-case tracking-normal">optionnel — pour être recontacté</span></label>
+                    <label className="block text-xs uppercase tracking-[0.25em] text-white/50 mb-2">
+                      Email{" "}
+                      <span className="text-white/25 normal-case tracking-normal">
+                        optionnel — pour être recontacté
+                      </span>
+                    </label>
                     <input
                       type="email"
                       value={reportEmail}
@@ -954,7 +1199,10 @@ export default function GaleriePage() {
                   <Turnstile
                     ref={reportTurnstileRef}
                     siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
-                    onSuccess={(token) => { setReportTurnstileToken(token); setReportError(""); }}
+                    onSuccess={(token) => {
+                      setReportTurnstileToken(token);
+                      setReportError("");
+                    }}
                     onExpire={() => setReportTurnstileToken(null)}
                     options={{ theme: "dark", size: "normal" }}
                   />
@@ -969,7 +1217,9 @@ export default function GaleriePage() {
                   </button>
                   <button
                     onClick={handleReport}
-                    disabled={!reportRaison || reportLoading || !reportTurnstileToken}
+                    disabled={
+                      !reportRaison || reportLoading || !reportTurnstileToken
+                    }
                     className="flex-1 py-3 rounded-full border border-red-400/40 bg-red-400/10 text-red-400 text-xs uppercase tracking-[0.25em] hover:bg-red-400/20 hover:border-red-400/70 transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     {reportLoading ? "Envoi…" : "Envoyer"}
