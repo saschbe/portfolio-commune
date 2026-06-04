@@ -35,7 +35,7 @@ function photoPopupHtml(opts: {
 }) {
   const thumbUrl = imageUrl(opts.src, "thumb");
   return `
-    <div style="width:220px">
+    <div style="width:220px;padding:14px">
       <div style="width:100%;height:140px;border-radius:8px;overflow:hidden;margin-bottom:10px;background:rgba(255,255,255,0.05)">
         <img src="${thumbUrl}" alt="${opts.title}" style="width:100%;height:100%;object-fit:cover" />
       </div>
@@ -85,11 +85,14 @@ export default function MapClient() {
 
       L.tileLayer(
         `https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png?api_key=${process.env.NEXT_PUBLIC_STADIA_API_KEY}`,
-        { maxZoom: 20 }
+        { maxZoom: 20 },
       ).addTo(map);
 
-      L.control.attribution({ prefix: false })
-        .addAttribution('<span style="font-size:10px;opacity:0.4">© Stadia Maps © OpenStreetMap</span>')
+      L.control
+        .attribution({ prefix: false })
+        .addAttribution(
+          '<span style="font-size:10px;opacity:0.4">© Stadia Maps © OpenStreetMap</span>',
+        )
         .addTo(map);
 
       const cyanIcon = L.divIcon({
@@ -135,7 +138,7 @@ export default function MapClient() {
               village: l.village,
               description: l.description,
             }),
-            popupOpts
+            popupOpts,
           )
           .addTo(map);
       }
@@ -150,7 +153,7 @@ export default function MapClient() {
               village: p.village,
               description: p.description,
             }),
-            { ...popupOpts, maxWidth: 240 }
+            { ...popupOpts, maxWidth: 240 },
           )
           .addTo(map);
       }
