@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import "leaflet/dist/leaflet.css";
 import type L from "leaflet";
 import { supabase } from "@/lib/supabase";
+import { imageUrl } from "@/lib/imageUrl";
 
 type Lieu = {
   id: string;
@@ -17,12 +18,34 @@ type Lieu = {
 
 type Photo = {
   id: string;
+  src: string;
   title: string;
   village: string;
   description: string;
   latitude: number;
   longitude: number;
 };
+
+function photoPopupHtml(opts: {
+  id: string;
+  src: string;
+  title: string;
+  village: string;
+  description: string;
+}) {
+  const thumbUrl = imageUrl(opts.src, "thumb");
+  return `
+    <div style="width:220px">
+      <div style="width:100%;height:140px;border-radius:8px;overflow:hidden;margin-bottom:10px;background:rgba(255,255,255,0.05)">
+        <img src="${thumbUrl}" alt="${opts.title}" style="width:100%;height:100%;object-fit:cover" />
+      </div>
+      <p style="margin:0 0 4px;font-size:10px;text-transform:uppercase;letter-spacing:0.2em;color:rgba(103,232,249,0.7)">Photo</p>
+      <p style="margin:0 0 3px;font-size:14px;font-weight:500;color:#fff;line-height:1.3">${opts.title}</p>
+      <p style="margin:0 0 8px;font-size:10px;text-transform:uppercase;letter-spacing:0.15em;color:rgba(255,255,255,0.35)">${opts.village}</p>
+      ${opts.description ? `<p style="margin:0 0 10px;font-size:12px;color:rgba(255,255,255,0.55);line-height:1.5">${opts.description}</p>` : ""}
+      <a href="/photo/${opts.id}" style="display:inline-block;font-size:10px;text-transform:uppercase;letter-spacing:0.2em;color:#67e8f9;text-decoration:none;border:1px solid rgba(103,232,249,0.3);padding:6px 12px;border-radius:9999px">Voir la photo →</a>
+    </div>`;
+}
 
 function popupHtml(opts: {
   label: string;
@@ -95,7 +118,7 @@ export default function MapClient() {
           .not("longitude", "is", null),
         supabase
           .from("photos")
-          .select("id, title, village, description, latitude, longitude")
+          .select("id, src, title, village, description, latitude, longitude")
           .eq("status", "approved")
           .not("latitude", "is", null)
           .not("longitude", "is", null),
@@ -120,13 +143,14 @@ export default function MapClient() {
       for (const p of (photos ?? []) as Photo[]) {
         L.marker([p.latitude, p.longitude], { icon: whiteIcon })
           .bindPopup(
-            popupHtml({
-              label: "Photo",
+            photoPopupHtml({
+              id: p.id,
+              src: p.src,
               title: p.title,
               village: p.village,
               description: p.description,
             }),
-            popupOpts
+            { ...popupOpts, maxWidth: 240 }
           )
           .addTo(map);
       }
