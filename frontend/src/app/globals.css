@@ -132,3 +132,7 @@ body {
   color: white !important;
 }
 
+
+/* Neutralise le style bleu/jaune par défaut de MarkerCluster */
+.marker-cluster, .marker-cluster div { background: transparent !important; border: none !important; }
+.marker-cluster span { display: none; }

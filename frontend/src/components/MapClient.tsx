@@ -2,6 +2,8 @@
 
 import { useEffect, useRef } from "react";
 import "leaflet/dist/leaflet.css";
+import "leaflet.markercluster/dist/MarkerCluster.css";
+import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import type L from "leaflet";
 import { supabase } from "@/lib/supabase";
 import { imageUrl } from "@/lib/imageUrl";
@@ -73,6 +75,7 @@ export default function MapClient() {
 
     async function init() {
       const L = (await import("leaflet")).default;
+      await import("leaflet.markercluster");
       if (!containerRef.current || !alive) return;
 
       const map = L.map(containerRef.current, {
@@ -129,6 +132,22 @@ export default function MapClient() {
 
       if (!alive) return;
 
+      const clusterGroup = L.markerClusterGroup({
+        showCoverageOnHover: false,
+        spiderfyOnMaxZoom: true,
+        maxClusterRadius: 50,
+        iconCreateFunction: (cluster: { getChildCount(): number }) => {
+          const n = cluster.getChildCount();
+          const size = n < 10 ? 36 : n < 50 ? 46 : 56;
+          return L.divIcon({
+            html: `<div style="width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center;background:rgba(8,145,178,0.25);border:2px solid rgba(103,232,249,0.7);border-radius:50%;box-shadow:0 0 16px rgba(103,232,249,0.5),0 0 0 6px rgba(103,232,249,0.1);backdrop-filter:blur(4px);color:#67e8f9;font-size:13px;font-weight:600">${n}</div>`,
+            className: "",
+            iconSize: [size, size],
+            iconAnchor: [size / 2, size / 2],
+          });
+        },
+      });
+
       for (const l of (lieux ?? []) as Lieu[]) {
         L.marker([l.latitude, l.longitude], { icon: cyanIcon })
           .bindPopup(
@@ -140,7 +159,7 @@ export default function MapClient() {
             }),
             popupOpts,
           )
-          .addTo(map);
+          .addTo(clusterGroup);
       }
 
       for (const p of (photos ?? []) as Photo[]) {
@@ -155,8 +174,10 @@ export default function MapClient() {
             }),
             { ...popupOpts, maxWidth: 240 },
           )
-          .addTo(map);
+          .addTo(clusterGroup);
       }
+
+      map.addLayer(clusterGroup);
     }
 
     init();
