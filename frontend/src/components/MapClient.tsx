@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import "leaflet/dist/leaflet.css";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
@@ -64,9 +64,34 @@ function popupHtml(opts: {
     </div>`;
 }
 
+const STADIA_KEY = process.env.NEXT_PUBLIC_STADIA_API_KEY;
+function tileUrl(style: "dark" | "light") {
+  const layer = style === "dark" ? "alidade_smooth_dark" : "alidade_smooth";
+  return `https://tiles.stadiamaps.com/tiles/${layer}/{z}/{x}/{y}{r}.png?api_key=${STADIA_KEY}`;
+}
+
 export default function MapClient() {
   const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<InstanceType<typeof L.Map> | null>(null);
+  const mapRef   = useRef<InstanceType<typeof L.Map> | null>(null);
+  const tileRef  = useRef<L.TileLayer | null>(null);
+  const leafletRef = useRef<typeof L | null>(null);
+
+  const [mapStyle, setMapStyle] = useState<"dark" | "light">(() => {
+    if (typeof window === "undefined") return "dark";
+    const s = localStorage.getItem("map-style");
+    return s === "light" ? "light" : "dark";
+  });
+
+  // Swap du fond de carte sans recréer les marqueurs
+  useEffect(() => {
+    const L   = leafletRef.current;
+    const map = mapRef.current;
+    const old = tileRef.current;
+    if (!L || !map || !old) return;
+    map.removeLayer(old);
+    tileRef.current = L.tileLayer(tileUrl(mapStyle), { maxZoom: 20 }).addTo(map);
+    localStorage.setItem("map-style", mapStyle);
+  }, [mapStyle]);
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -75,6 +100,7 @@ export default function MapClient() {
 
     async function init() {
       const L = (await import("leaflet")).default;
+      leafletRef.current = L;
       await import("leaflet.markercluster");
       if (!containerRef.current || !alive) return;
 
@@ -86,10 +112,7 @@ export default function MapClient() {
       });
       mapRef.current = map;
 
-      L.tileLayer(
-        `https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png?api_key=${process.env.NEXT_PUBLIC_STADIA_API_KEY}`,
-        { maxZoom: 20 },
-      ).addTo(map);
+      tileRef.current = L.tileLayer(tileUrl(mapStyle), { maxZoom: 20 }).addTo(map);
 
       L.control
         .attribution({ prefix: false })
@@ -191,5 +214,27 @@ export default function MapClient() {
     };
   }, []);
 
-  return <div ref={containerRef} className="w-full h-full" />;
+  return (
+    <div className="relative w-full h-full">
+      <div ref={containerRef} className="w-full h-full" />
+      <div className="absolute top-4 right-4 z-500 flex rounded-full overflow-hidden border border-white/15 bg-black/60 backdrop-blur-md">
+        <button
+          onClick={() => setMapStyle("dark")}
+          className={`px-4 py-2 text-[10px] uppercase tracking-[0.2em] transition-all ${
+            mapStyle === "dark" ? "bg-cyan-300/15 text-cyan-300" : "text-white/40 hover:text-white/70"
+          }`}
+        >
+          Sombre
+        </button>
+        <button
+          onClick={() => setMapStyle("light")}
+          className={`px-4 py-2 text-[10px] uppercase tracking-[0.2em] transition-all ${
+            mapStyle === "light" ? "bg-cyan-300/15 text-cyan-300" : "text-white/40 hover:text-white/70"
+          }`}
+        >
+          Clair
+        </button>
+      </div>
+    </div>
+  );
 }
