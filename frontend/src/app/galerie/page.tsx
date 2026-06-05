@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Turnstile } from "@marsidev/react-turnstile";
 import type { TurnstileInstance } from "@marsidev/react-turnstile";
 import { supabase } from "@/lib/supabase";
@@ -125,6 +125,7 @@ const RAISONS: { value: string; label: string }[] = [
 
 export default function GaleriePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   // Auth
   const [user, setUser] = useState<User | null>(null);
@@ -148,8 +149,8 @@ export default function GaleriePage() {
   const abortRefs = useRef<Record<string, AbortController>>({});
   const [filterRestaureeOui, setFilterRestaureeOui] = useState(false);
   const [filterRestaureeNon, setFilterRestaureeNon] = useState(false);
-  const [selectedVillage, setSelectedVillage] = useState<string | null>(null);
-  const [selectedHameau, setSelectedHameau] = useState<string | null>(null);
+  const [selectedVillage, setSelectedVillage] = useState<string | null>(() => searchParams.get("village"));
+  const [selectedHameau, setSelectedHameau] = useState<string | null>(() => searchParams.get("hameau"));
 
   // Signalement
   const [reportingPhoto, setReportingPhoto] = useState<Photo | null>(null);
@@ -801,7 +802,13 @@ export default function GaleriePage() {
             {filteredPhotos.map((photo, index) => (
               <Link
                 key={photo.id}
-                href={`/photo/${photo.id}`}
+                href={(() => {
+                  const p = new URLSearchParams({ from: "galerie" });
+                  p.set("ids", filteredPhotos.map(ph => ph.id).join(","));
+                  if (selectedVillage) p.set("village", selectedVillage);
+                  if (selectedHameau)  p.set("hameau",  selectedHameau);
+                  return `/photo/${photo.id}?${p.toString()}`;
+                })()}
                 className="block break-inside-avoid mb-3 group relative overflow-hidden rounded-3xl border border-white/10 bg-white/3 backdrop-blur-md transition-all duration-700 hover:-translate-y-1 hover:border-cyan-300/30 hover:bg-white/5 hover:shadow-[0_20px_80px_rgba(34,211,238,0.10)]"
               >
                 <div className={`relative ${ASPECTS[index % ASPECTS.length]}`}>

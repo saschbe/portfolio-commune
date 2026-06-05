@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import { Turnstile } from "@marsidev/react-turnstile";
 import type { TurnstileInstance } from "@marsidev/react-turnstile";
@@ -82,6 +82,11 @@ export default function PhotoPage() {
   const id = params.id as string;
   const router = useRouter();
 
+  // Context from query params (carte / galerie filtrée / accès direct)
+  const searchParams = useSearchParams();
+  const from     = searchParams.get("from");   // "carte" | "galerie" | null
+  const idsParam = searchParams.get("ids");    // IDs filtrés séparés par virgule | null
+
   // currentId drives what's displayed — updated via swipe without page reload
   const [currentId, setCurrentId] = useState(id);
 
@@ -95,10 +100,45 @@ export default function PhotoPage() {
   // Slide animation direction (null = enter animation, 'left'/'right' = exit)
   const [slideDir, setSlideDir] = useState<"left" | "right" | null>(null);
 
-  // Derived navigation
-  const currentIndex = adjacentIds.indexOf(currentId);
-  const prevId = currentIndex > 0 ? adjacentIds[currentIndex - 1] : null;
-  const nextId = currentIndex < adjacentIds.length - 1 ? adjacentIds[currentIndex + 1] : null;
+  // Liste effective pour la navigation (selon le contexte)
+  const navIds = useMemo<string[]>(() => {
+    if (from === "carte")                 return [id];
+    if (from === "galerie" && idsParam)   return idsParam.split(",");
+    return adjacentIds;
+  }, [from, idsParam, id, adjacentIds]);
+
+  const currentIndex = navIds.indexOf(currentId);
+  const prevId = currentIndex > 0 ? navIds[currentIndex - 1] : null;
+  const nextId = currentIndex < navIds.length - 1 ? navIds[currentIndex + 1] : null;
+
+  // Params à propager dans tous les liens prev/next
+  const contextSearch = useMemo(() => {
+    if (!from) return "";
+    const p = new URLSearchParams({ from });
+    if (idsParam) p.set("ids", idsParam);
+    const v = searchParams.get("village");
+    const h = searchParams.get("hameau");
+    if (v) p.set("village", v);
+    if (h) p.set("hameau", h);
+    return `?${p.toString()}`;
+  }, [from, idsParam, searchParams]);
+
+  // Bouton retour adapté au contexte
+  const backHref = from === "carte"
+    ? "/carte"
+    : from === "galerie"
+    ? (() => {
+        const p = new URLSearchParams();
+        const v = searchParams.get("village");
+        const h = searchParams.get("hameau");
+        if (v) p.set("village", v);
+        if (h) p.set("hameau", h);
+        const s = p.toString();
+        return s ? `/galerie?${s}` : "/galerie";
+      })()
+    : "/galerie";
+
+  const backLabel = from === "carte" ? "← Carte" : "← Galerie";
 
   // Auth
   const [user, setUser] = useState<User | null>(null);
@@ -130,7 +170,7 @@ export default function PhotoPage() {
     setTimeout(() => {
       setCurrentId(targetId);
       setSlideDir(null);
-      window.history.replaceState(null, "", `/photo/${targetId}`);
+      window.history.replaceState(null, "", `/photo/${targetId}${contextSearch}`);
     }, 180);
   }, []);
 
@@ -149,16 +189,16 @@ export default function PhotoPage() {
         if (reportOpen) { closeReport();    return; }
       }
       if (!zoomed && !reportOpen) {
-        const idx = adjacentIds.indexOf(currentId);
+        const idx = navIds.indexOf(currentId);
         if (e.key === "ArrowLeft"  && idx > 0)
-          router.push(`/photo/${adjacentIds[idx - 1]}`);
-        if (e.key === "ArrowRight" && idx < adjacentIds.length - 1)
-          router.push(`/photo/${adjacentIds[idx + 1]}`);
+          router.push(`/photo/${navIds[idx - 1]}${contextSearch}`);
+        if (e.key === "ArrowRight" && idx < navIds.length - 1)
+          router.push(`/photo/${navIds[idx + 1]}${contextSearch}`);
       }
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [zoomed, reportOpen, adjacentIds, currentId, router]);
+  }, [zoomed, reportOpen, navIds, contextSearch, currentId, router]);
 
   // ── Swipe in zoom lightbox (unchanged) ───────────────────────────────────
 
@@ -197,6 +237,7 @@ export default function PhotoPage() {
   // ── Load adjacentIds once ─────────────────────────────────────────────────
 
   useEffect(() => {
+    if (from === "carte" || (from === "galerie" && idsParam)) return;
     supabase
       .from("photos")
       .select("id")
@@ -205,7 +246,7 @@ export default function PhotoPage() {
       .then(({ data }) => {
         setAdjacentIds((data ?? []).map((p: { id: string }) => p.id));
       });
-  }, []);
+  }, [from, idsParam]);
 
   // ── Load photo data (cache-first) ─────────────────────────────────────────
   // setLoading(true) intentionally omitted here — the initial useState(true) covers
@@ -365,7 +406,7 @@ export default function PhotoPage() {
             {(prevId || nextId) && (
               <div className="hidden sm:flex items-center gap-1">
                 <Link
-                  href={prevId ? `/photo/${prevId}` : "#"}
+                  href={prevId ? `/photo/${prevId}${contextSearch}` : "#"}
                   aria-disabled={!prevId}
                   className={`w-8 h-8 rounded-full border flex items-center justify-center transition-all duration-200 ${
                     prevId
@@ -376,7 +417,7 @@ export default function PhotoPage() {
                   <ChevronLeft />
                 </Link>
                 <Link
-                  href={nextId ? `/photo/${nextId}` : "#"}
+                  href={nextId ? `/photo/${nextId}${contextSearch}` : "#"}
                   aria-disabled={!nextId}
                   className={`w-8 h-8 rounded-full border flex items-center justify-center transition-all duration-200 ${
                     nextId
@@ -390,10 +431,10 @@ export default function PhotoPage() {
             )}
 
             <Link
-              href="/galerie"
+              href={backHref}
               className="text-white/40 text-xs uppercase tracking-[0.25em] hover:text-white/70 transition-colors duration-300"
             >
-              ← Galerie
+              {backLabel}
             </Link>
           </div>
         </div>
@@ -480,20 +521,20 @@ export default function PhotoPage() {
                   </div>
 
                   {/* Compteur X / Y */}
-                  {adjacentIds.length > 1 && currentIndex >= 0 && (
+                  {navIds.length > 1 && currentIndex >= 0 && (
                     <div className="absolute top-3 left-1/2 -translate-x-1/2 pointer-events-none">
                       <span className="px-3 py-1 rounded-full bg-black/55 backdrop-blur-sm border border-white/10 text-white/50 text-[10px] uppercase tracking-[0.2em] tabular-nums">
-                        {currentIndex + 1} / {adjacentIds.length}
+                        {currentIndex + 1} / {navIds.length}
                       </span>
                     </div>
                   )}
 
                   {/* Points de navigation + chevrons — mobile uniquement */}
-                  {adjacentIds.length > 1 && currentIndex >= 0 && (
+                  {navIds.length > 1 && currentIndex >= 0 && (
                     <div className="absolute bottom-3 left-0 right-0 flex items-center justify-center gap-1.5 lg:hidden pointer-events-none">
                       <span className={`text-sm ${prevId ? "text-white/50" : "text-white/20"}`}>‹</span>
                       {(() => {
-                        const total = adjacentIds.length;
+                        const total = navIds.length;
                         const maxDots = 5;
                         const count = Math.min(maxDots, total);
                         const start = total <= maxDots ? 0 : Math.max(0, Math.min(currentIndex - 2, total - maxDots));
@@ -526,7 +567,7 @@ export default function PhotoPage() {
                   {/* Flèche gauche */}
                   {prevId && (
                     <Link
-                      href={`/photo/${prevId}`}
+                      href={`/photo/${prevId}${contextSearch}`}
                       onClick={(e) => e.stopPropagation()}
                       className="absolute left-3 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-black/50 backdrop-blur-sm border border-white/15 flex items-center justify-center text-white/70 hover:bg-black/70 hover:text-white transition-all duration-200"
                       aria-label="Photo précédente"
@@ -538,7 +579,7 @@ export default function PhotoPage() {
                   {/* Flèche droite */}
                   {nextId && (
                     <Link
-                      href={`/photo/${nextId}`}
+                      href={`/photo/${nextId}${contextSearch}`}
                       onClick={(e) => e.stopPropagation()}
                       className="absolute right-3 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-black/50 backdrop-blur-sm border border-white/15 flex items-center justify-center text-white/70 hover:bg-black/70 hover:text-white transition-all duration-200"
                       aria-label="Photo suivante"
@@ -789,7 +830,7 @@ export default function PhotoPage() {
       <div className="fixed bottom-0 left-0 right-0 z-40 bg-black/80 backdrop-blur-xl border-t border-white/10 px-4 py-3 flex items-center justify-between lg:hidden">
         {prevId ? (
           <Link
-            href={`/photo/${prevId}`}
+            href={`/photo/${prevId}${contextSearch}`}
             className="flex-1 flex items-center gap-2 h-11 text-white/50 text-xs uppercase tracking-[0.2em] hover:text-white/80 transition-colors duration-200"
           >
             <ChevronLeft /> Précédente
@@ -797,14 +838,14 @@ export default function PhotoPage() {
         ) : (
           <div className="flex-1" />
         )}
-        {currentIndex >= 0 && adjacentIds.length > 1 && (
+        {currentIndex >= 0 && navIds.length > 1 && (
           <span className="text-white/30 text-xs uppercase tracking-[0.25em] tabular-nums px-4">
-            {currentIndex + 1} / {adjacentIds.length}
+            {currentIndex + 1} / {navIds.length}
           </span>
         )}
         {nextId ? (
           <Link
-            href={`/photo/${nextId}`}
+            href={`/photo/${nextId}${contextSearch}`}
             className="flex-1 flex items-center justify-end gap-2 h-11 text-white/50 text-xs uppercase tracking-[0.2em] hover:text-white/80 transition-colors duration-200"
           >
             Suivante <ChevronRight />
