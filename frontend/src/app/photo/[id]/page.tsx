@@ -356,7 +356,7 @@ export default function PhotoPage() {
               alt="Plombières en Images"
               width={0} height={0}
               sizes="100vw"
-              className="w-[130px] md:w-[190px] lg:w-[260px] h-auto drop-shadow-[0_0_12px_rgba(255,255,255,0.35)]"
+              className="w-[130px] md:w-40 h-auto drop-shadow-[0_0_12px_rgba(255,255,255,0.35)]"
               priority
             />
           </Link>
@@ -479,9 +479,9 @@ export default function PhotoPage() {
                     </span>
                   </div>
 
-                  {/* Compteur X / Y — mobile uniquement */}
+                  {/* Compteur X / Y */}
                   {adjacentIds.length > 1 && currentIndex >= 0 && (
-                    <div className="absolute top-3 left-1/2 -translate-x-1/2 lg:hidden pointer-events-none">
+                    <div className="absolute top-3 left-1/2 -translate-x-1/2 pointer-events-none">
                       <span className="px-3 py-1 rounded-full bg-black/55 backdrop-blur-sm border border-white/10 text-white/50 text-[10px] uppercase tracking-[0.2em] tabular-nums">
                         {currentIndex + 1} / {adjacentIds.length}
                       </span>
@@ -522,33 +522,40 @@ export default function PhotoPage() {
                   >
                     ⊕
                   </button>
-                </div>
 
-                {/* Navigation précédente / suivante — desktop uniquement */}
-                <div className="hidden lg:flex items-center justify-between px-1">
-                  {prevId ? (
+                  {/* Flèche gauche */}
+                  {prevId && (
                     <Link
                       href={`/photo/${prevId}`}
-                      className="flex items-center gap-2 px-4 py-2 rounded-full border border-white/10 text-white/40 text-xs uppercase tracking-[0.2em] hover:border-white/20 hover:text-white/70 transition-all duration-300"
+                      onClick={(e) => e.stopPropagation()}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-black/50 backdrop-blur-sm border border-white/15 flex items-center justify-center text-white/70 hover:bg-black/70 hover:text-white transition-all duration-200"
+                      aria-label="Photo précédente"
                     >
-                      <ChevronLeft /> Précédente
+                      <ChevronLeft />
                     </Link>
-                  ) : <div />}
-
-                  {currentIndex >= 0 && adjacentIds.length > 1 && (
-                    <span className="text-white/20 text-[10px] uppercase tracking-[0.25em] tabular-nums">
-                      {currentIndex + 1} <span className="text-white/10 mx-1">/</span> {adjacentIds.length}
-                    </span>
                   )}
 
-                  {nextId ? (
+                  {/* Flèche droite */}
+                  {nextId && (
                     <Link
                       href={`/photo/${nextId}`}
-                      className="flex items-center gap-2 px-4 py-2 rounded-full border border-white/10 text-white/40 text-xs uppercase tracking-[0.2em] hover:border-white/20 hover:text-white/70 transition-all duration-300"
+                      onClick={(e) => e.stopPropagation()}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-black/50 backdrop-blur-sm border border-white/15 flex items-center justify-center text-white/70 hover:bg-black/70 hover:text-white transition-all duration-200"
+                      aria-label="Photo suivante"
                     >
-                      Suivante <ChevronRight />
+                      <ChevronRight />
                     </Link>
-                  ) : <div />}
+                  )}
+
+                  {/* Drapeau signalement — coin supérieur droit */}
+                  <button
+                    onClick={(e) => { e.stopPropagation(); openReport(); }}
+                    className="absolute top-3 right-3 z-10 w-9 h-9 rounded-full bg-black/50 backdrop-blur-sm border border-white/15 flex items-center justify-center text-white/50 hover:text-red-400 hover:border-red-400/40 transition-all duration-200"
+                    aria-label="Signaler cette photo"
+                    title="Signaler cette photo"
+                  >
+                    <FlagIcon />
+                  </button>
                 </div>
 
               </div>
@@ -621,17 +628,6 @@ export default function PhotoPage() {
                   </div>
                 </div>
               )}
-
-              {/* Non animé : bouton signaler */}
-              <div className="border-t border-white/5 pt-5">
-                <button
-                  onClick={openReport}
-                  className="flex items-center gap-2 text-white/25 hover:text-white/50 text-[10px] uppercase tracking-[0.2em] transition-colors duration-300"
-                >
-                  <FlagIcon />
-                  Signaler cette photo
-                </button>
-              </div>
 
             </div>
           </div>
