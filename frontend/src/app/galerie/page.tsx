@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -123,7 +123,7 @@ const RAISONS: { value: string; label: string }[] = [
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
-export default function GaleriePage() {
+function GalerieContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -1238,5 +1238,14 @@ export default function GaleriePage() {
         </div>
       )}
     </div>
+  );
+}
+
+
+export default function GaleriePage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-black" />}>
+      <GalerieContent />
+    </Suspense>
   );
 }

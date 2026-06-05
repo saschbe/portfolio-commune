@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
@@ -77,7 +77,7 @@ function ChevronRight() {
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
-export default function PhotoPage() {
+function PhotoContent() {
   const params = useParams();
   const id = params.id as string;
   const router = useRouter();
@@ -856,5 +856,14 @@ export default function PhotoPage() {
       </div>
 
     </div>
+  );
+}
+
+
+export default function PhotoPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-black" />}>
+      <PhotoContent />
+    </Suspense>
   );
 }
