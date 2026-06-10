@@ -32,6 +32,7 @@ export default function Header() {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [isPrivileged, setIsPrivileged] = useState(false);
+  const [profileDisplayName, setProfileDisplayName] = useState("");
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -57,10 +58,11 @@ export default function Header() {
   async function fetchRole(userId: string) {
     const { data } = await supabase
       .from("profiles")
-      .select("role")
+      .select("role, display_name")
       .eq("id", userId)
       .single();
     setIsPrivileged(["admin", "moderator"].includes(data?.role ?? ""));
+    setProfileDisplayName(data?.display_name ?? "");
   }
 
   // Fermer le dropdown si clic extérieur
@@ -85,8 +87,9 @@ export default function Header() {
   }
 
   const displayName =
-    (user?.user_metadata?.name as string | undefined) ??
-    user?.email?.split("@")[0] ??
+    profileDisplayName ||
+    (user?.user_metadata?.name as string | undefined) ||
+    user?.email?.split("@")[0] ||
     "";
 
   const spaceHref = isPrivileged ? "/admin" : "/dashboard";
@@ -131,9 +134,6 @@ export default function Header() {
               </a>
               <a href="/galerie" className="hover:text-cyan-300 transition-all duration-300">
                 Galerie
-              </a>
-              <a href="#histoire" className="hover:text-cyan-300 transition-all duration-300">
-                Histoire
               </a>
               <a href="/carte" className="hover:text-cyan-300 transition-all duration-300">
                 Carte
@@ -217,14 +217,8 @@ export default function Header() {
 
             <div className="mt-12 flex flex-col sm:flex-row items-center justify-center gap-6">
               <a
-                href="#histoire"
-                className="px-8 py-4 bg-white/10 border border-white/20 backdrop-blur-md text-white uppercase tracking-[0.25em] text-sm hover:bg-white hover:text-black transition-all duration-500"
-              >
-                Découvrir
-              </a>
-              <a
-                href="#"
-                className="px-8 py-4 border border-cyan-300/40 text-cyan-200 uppercase tracking-[0.25em] text-sm hover:bg-cyan-300 hover:text-black transition-all duration-500"
+                href="/galerie"
+                className="px-8 py-4 rounded-full border border-cyan-300/40 bg-cyan-300/10 text-cyan-300 uppercase tracking-[0.3em] text-sm hover:bg-cyan-300/20 hover:border-cyan-300/70 transition-all duration-300"
               >
                 Explorer les archives
               </a>
@@ -241,9 +235,6 @@ export default function Header() {
               </a>
               <a href="/galerie" onClick={() => setMobileMenuOpen(false)} className="hover:text-cyan-300 transition-all duration-300">
                 Galerie
-              </a>
-              <a href="#histoire" onClick={() => setMobileMenuOpen(false)} className="hover:text-cyan-300 transition-all duration-300">
-                Histoire
               </a>
               <a href="/carte" onClick={() => setMobileMenuOpen(false)} className="hover:text-cyan-300 transition-all duration-300">
                 Carte

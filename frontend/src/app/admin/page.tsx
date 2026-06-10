@@ -11,8 +11,9 @@ import LieuxSection from "./_components/LieuxSection";
 import SignalementsSection from "./_components/SignalementsSection";
 import UploadSection from "./_components/UploadSection";
 import LogsSection from "./_components/LogsSection";
+import TemoignagesSection from "./_components/TemoignagesSection";
 
-type Section = "photos" | "lieux" | "pending" | "users" | "signalements" | "upload" | "logs";
+type Section = "photos" | "lieux" | "pending" | "users" | "signalements" | "temoignages" | "upload" | "logs";
 
 const navItems: { id: Section; label: string }[] = [
   { id: "photos",        label: "Photos" },
@@ -20,6 +21,7 @@ const navItems: { id: Section; label: string }[] = [
   { id: "pending",       label: "En attente d'approbation" },
   { id: "users",         label: "Utilisateurs" },
   { id: "signalements",  label: "Signalements" },
+  { id: "temoignages",   label: "Témoignages" },
   { id: "upload",        label: "Importer des photos" },
   { id: "logs",          label: "Historique" },
 ];
@@ -29,6 +31,7 @@ export default function AdminPage() {
   const [activeSection, setActiveSection] = useState<Section>("photos");
   const [pendingCount, setPendingCount]           = useState(0);
   const [signalementsCount, setSignalementsCount] = useState(0);
+  const [temoignagesCount, setTemoignagesCount]   = useState(0);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [currentRole, setCurrentRole] = useState<string>("");
   const [notifNewPhoto, setNotifNewPhoto] = useState(false);
@@ -50,9 +53,18 @@ export default function AdminPage() {
       .then(({ count }) => setSignalementsCount(count ?? 0));
   }, []);
 
+  const refreshTemoignages = useCallback(() => {
+    supabase
+      .from("signalements_temoignages")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "pending")
+      .then(({ count }) => setTemoignagesCount(count ?? 0));
+  }, []);
+
   useEffect(() => {
     refreshPending();
     refreshSignalements();
+    refreshTemoignages();
 
     supabase.auth.getUser().then(({ data }) => {
       if (!data.user) return;
@@ -73,10 +85,11 @@ export default function AdminPage() {
       .channel("admin-badges")
       .on("postgres_changes", { event: "*", schema: "public", table: "photos" }, refreshPending)
       .on("postgres_changes", { event: "*", schema: "public", table: "signalements" }, refreshSignalements)
+      .on("postgres_changes", { event: "*", schema: "public", table: "signalements_temoignages" }, refreshTemoignages)
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [refreshPending, refreshSignalements]);
+  }, [refreshPending, refreshSignalements, refreshTemoignages]);
 
   async function handleNotifToggle(value: boolean) {
     const { data: { user } } = await supabase.auth.getUser();
@@ -122,6 +135,11 @@ export default function AdminPage() {
       {id === "signalements" && signalementsCount > 0 && (
         <span className="ml-2 inline-flex items-center justify-center w-5 h-5 rounded-full bg-red-400 text-white text-[10px] font-bold">
           {signalementsCount > 9 ? "9+" : signalementsCount}
+        </span>
+      )}
+      {id === "temoignages" && temoignagesCount > 0 && (
+        <span className="ml-2 inline-flex items-center justify-center w-5 h-5 rounded-full bg-cyan-300 text-black text-[10px] font-bold">
+          {temoignagesCount > 9 ? "9+" : temoignagesCount}
         </span>
       )}
     </button>
@@ -256,6 +274,7 @@ export default function AdminPage() {
         {activeSection === "signalements" && (
           <SignalementsSection onCountChange={refreshSignalements} />
         )}
+        {activeSection === "temoignages" && <TemoignagesSection />}
         {activeSection === "upload" && <UploadSection />}
         {activeSection === "logs" && currentRole === "admin" && <LogsSection />}
       </main>

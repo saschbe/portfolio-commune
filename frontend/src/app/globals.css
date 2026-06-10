@@ -136,3 +136,14 @@ body {
 /* Neutralise le style bleu/jaune par défaut de MarkerCluster */
 .marker-cluster, .marker-cluster div { background: transparent !important; border: none !important; }
 .marker-cluster span { display: none; }
+
+/* Masquer les flèches des inputs number (champs année) */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}

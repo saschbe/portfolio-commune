@@ -5,7 +5,6 @@ import "leaflet/dist/leaflet.css";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import type L from "leaflet";
-import { supabase } from "@/lib/supabase";
 import { imageUrl } from "@/lib/imageUrl";
 
 type Lieu = {
@@ -26,6 +25,11 @@ type Photo = {
   description: string;
   latitude: number;
   longitude: number;
+};
+
+type Props = {
+  photos: Photo[];
+  lieux: Lieu[];
 };
 
 function photoPopupHtml(opts: {
@@ -66,15 +70,16 @@ function popupHtml(opts: {
 
 const STADIA_KEY = process.env.NEXT_PUBLIC_STADIA_API_KEY;
 function tileUrl(style: "dark" | "light") {
-  const layer = style === "dark" ? "alidade_smooth_dark" : "alidade_smooth";
+  const layer = style === "dark" ? "alidade_smooth_dark" : "osm_bright";
   return `https://tiles.stadiamaps.com/tiles/${layer}/{z}/{x}/{y}{r}.png?api_key=${STADIA_KEY}`;
 }
 
-export default function MapClient() {
+export default function MapClient({ photos, lieux }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef   = useRef<InstanceType<typeof L.Map> | null>(null);
-  const tileRef  = useRef<L.TileLayer | null>(null);
+  const mapRef = useRef<InstanceType<typeof L.Map> | null>(null);
+  const tileRef = useRef<L.TileLayer | null>(null);
   const leafletRef = useRef<typeof L | null>(null);
+  const clusterRef = useRef<L.MarkerClusterGroup | null>(null);
 
   const [mapStyle, setMapStyle] = useState<"dark" | "light">(() => {
     if (typeof window === "undefined") return "dark";
@@ -82,9 +87,11 @@ export default function MapClient() {
     return s === "light" ? "light" : "dark";
   });
 
-  // Swap du fond de carte sans recréer les marqueurs
+  const [mapReady, setMapReady] = useState(false);
+
+  // Swap tile layer without touching markers
   useEffect(() => {
-    const L   = leafletRef.current;
+    const L = leafletRef.current;
     const map = mapRef.current;
     const old = tileRef.current;
     if (!L || !map || !old) return;
@@ -93,6 +100,7 @@ export default function MapClient() {
     localStorage.setItem("map-style", mapStyle);
   }, [mapStyle]);
 
+  // Init map once
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
@@ -121,86 +129,7 @@ export default function MapClient() {
         )
         .addTo(map);
 
-      const cyanIcon = L.divIcon({
-        html: `<div style="width:14px;height:14px;background:#67e8f9;border-radius:50%;border:2px solid rgba(8,145,178,0.9);box-shadow:0 0 12px rgba(103,232,249,0.55),0 0 0 5px rgba(103,232,249,0.12)"></div>`,
-        className: "",
-        iconSize: [14, 14],
-        iconAnchor: [7, 7],
-        popupAnchor: [0, -12],
-      });
-
-      const whiteIcon = L.divIcon({
-        html: `<div style="width:10px;height:10px;background:rgba(255,255,255,0.92);border-radius:50%;border:2px solid rgba(255,255,255,0.3);box-shadow:0 0 8px rgba(255,255,255,0.4),0 0 0 4px rgba(255,255,255,0.08)"></div>`,
-        className: "",
-        iconSize: [10, 10],
-        iconAnchor: [5, 5],
-        popupAnchor: [0, -9],
-      });
-
-      const popupOpts = { className: "leaflet-popup-dark", maxWidth: 260 };
-
-      const [{ data: lieux }, { data: photos }] = await Promise.all([
-        supabase
-          .from("lieux")
-          .select("id, nom, village, type, description, latitude, longitude")
-          .not("latitude", "is", null)
-          .not("longitude", "is", null),
-        supabase
-          .from("photos")
-          .select("id, src, title, village, description, latitude, longitude")
-          .eq("status", "approved")
-          .not("latitude", "is", null)
-          .not("longitude", "is", null),
-      ]);
-
-      if (!alive) return;
-
-      const clusterGroup = L.markerClusterGroup({
-        showCoverageOnHover: false,
-        spiderfyOnMaxZoom: true,
-        maxClusterRadius: 50,
-        iconCreateFunction: (cluster: { getChildCount(): number }) => {
-          const n = cluster.getChildCount();
-          const size = n < 10 ? 36 : n < 50 ? 46 : 56;
-          return L.divIcon({
-            html: `<div style="width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center;background:rgba(8,145,178,0.25);border:2px solid rgba(103,232,249,0.7);border-radius:50%;box-shadow:0 0 16px rgba(103,232,249,0.5),0 0 0 6px rgba(103,232,249,0.1);backdrop-filter:blur(4px);color:#67e8f9;font-size:13px;font-weight:600">${n}</div>`,
-            className: "",
-            iconSize: [size, size],
-            iconAnchor: [size / 2, size / 2],
-          });
-        },
-      });
-
-      for (const l of (lieux ?? []) as Lieu[]) {
-        L.marker([l.latitude, l.longitude], { icon: cyanIcon })
-          .bindPopup(
-            popupHtml({
-              label: l.type,
-              title: l.nom,
-              village: l.village,
-              description: l.description,
-            }),
-            popupOpts,
-          )
-          .addTo(clusterGroup);
-      }
-
-      for (const p of (photos ?? []) as Photo[]) {
-        L.marker([p.latitude, p.longitude], { icon: whiteIcon })
-          .bindPopup(
-            photoPopupHtml({
-              id: p.id,
-              src: p.src,
-              title: p.title,
-              village: p.village,
-              description: p.description,
-            }),
-            { ...popupOpts, maxWidth: 240 },
-          )
-          .addTo(clusterGroup);
-      }
-
-      map.addLayer(clusterGroup);
+      if (alive) setMapReady(true);
     }
 
     init();
@@ -210,18 +139,97 @@ export default function MapClient() {
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
+        clusterRef.current = null;
       }
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Rebuild markers whenever filtered data changes
+  useEffect(() => {
+    const L = leafletRef.current;
+    const map = mapRef.current;
+    if (!L || !map) return;
+
+    if (clusterRef.current) {
+      map.removeLayer(clusterRef.current);
+      clusterRef.current.clearLayers();
+    }
+
+    const cyanIcon = L.divIcon({
+      html: `<div style="width:14px;height:14px;background:#67e8f9;border-radius:50%;border:2px solid rgba(8,145,178,0.9);box-shadow:0 0 12px rgba(103,232,249,0.55),0 0 0 5px rgba(103,232,249,0.12)"></div>`,
+      className: "",
+      iconSize: [14, 14],
+      iconAnchor: [7, 7],
+      popupAnchor: [0, -12],
+    });
+
+    const whiteIcon = L.divIcon({
+      html: `<div style="width:10px;height:10px;background:rgba(255,255,255,0.92);border-radius:50%;border:2px solid rgba(255,255,255,0.3);box-shadow:0 0 8px rgba(255,255,255,0.4),0 0 0 4px rgba(255,255,255,0.08)"></div>`,
+      className: "",
+      iconSize: [10, 10],
+      iconAnchor: [5, 5],
+      popupAnchor: [0, -9],
+    });
+
+    const popupOpts = { className: "leaflet-popup-dark", maxWidth: 260 };
+
+    const clusterGroup = L.markerClusterGroup({
+      showCoverageOnHover: false,
+      spiderfyOnMaxZoom: true,
+      maxClusterRadius: 50,
+      iconCreateFunction: (cluster: { getChildCount(): number }) => {
+        const n = cluster.getChildCount();
+        const size = n < 10 ? 36 : n < 50 ? 46 : 56;
+        return L.divIcon({
+          html: `<div style="
+            width:${size}px;height:${size}px;
+            display:flex;align-items:center;justify-content:center;
+            background:rgba(8,145,178,0.85);
+            border:2px solid rgba(103,232,249,0.9);
+            border-radius:50%;
+            box-shadow:0 0 16px rgba(8,145,178,0.4);
+            color:#ffffff;font-size:14px;font-weight:700;
+          ">${n}</div>`,
+          className: "",
+          iconSize: [size, size],
+          iconAnchor: [size / 2, size / 2],
+        });
+      },
+    });
+    clusterRef.current = clusterGroup;
+
+    for (const l of lieux) {
+      L.marker([l.latitude, l.longitude], { icon: cyanIcon })
+        .bindPopup(
+          popupHtml({ label: l.type, title: l.nom, village: l.village, description: l.description }),
+          popupOpts,
+        )
+        .addTo(clusterGroup);
+    }
+
+    for (const p of photos) {
+      L.marker([p.latitude, p.longitude], { icon: whiteIcon })
+        .bindPopup(
+          photoPopupHtml({ id: p.id, src: p.src, title: p.title, village: p.village, description: p.description }),
+          { ...popupOpts, maxWidth: 240 },
+        )
+        .addTo(clusterGroup);
+    }
+
+    map.addLayer(clusterGroup);
+  }, [photos, lieux, mapReady]);
 
   return (
     <div className="relative w-full h-full">
       <div ref={containerRef} className="w-full h-full" />
-      <div className="absolute top-4 right-4 z-500 flex rounded-full overflow-hidden border border-white/15 bg-black/60 backdrop-blur-md">
+      <div className="absolute top-20 right-4 z-500 flex rounded-full overflow-hidden border border-white/20 bg-black/80 backdrop-blur-md shadow-lg">
         <button
           onClick={() => setMapStyle("dark")}
           className={`px-4 py-2 text-[10px] uppercase tracking-[0.2em] transition-all ${
-            mapStyle === "dark" ? "bg-cyan-300/15 text-cyan-300" : "text-white/40 hover:text-white/70"
+            mapStyle === "dark"
+              ? "bg-cyan-300/15 text-cyan-300"
+              : "text-white/40 hover:text-white/70"
           }`}
         >
           Sombre
@@ -229,7 +237,9 @@ export default function MapClient() {
         <button
           onClick={() => setMapStyle("light")}
           className={`px-4 py-2 text-[10px] uppercase tracking-[0.2em] transition-all ${
-            mapStyle === "light" ? "bg-cyan-300/15 text-cyan-300" : "text-white/40 hover:text-white/70"
+            mapStyle === "light"
+              ? "bg-cyan-300/15 text-cyan-300"
+              : "text-white/40 hover:text-white/70"
           }`}
         >
           Clair

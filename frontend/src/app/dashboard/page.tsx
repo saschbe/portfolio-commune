@@ -100,6 +100,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [role, setRole] = useState<string>("user");
+  const [profileDisplayName, setProfileDisplayName] = useState("");
   const [notifNewPhoto, setNotifNewPhoto] = useState(false);
   const [savingNotif, setSavingNotif] = useState(false);
   const [photos, setPhotos] = useState<Photo[]>([]);
@@ -121,7 +122,7 @@ export default function DashboardPage() {
       loadPhotos(data.user.id);
       supabase
         .from("profiles")
-        .select("role, notif_new_photo")
+        .select("role, display_name, notif_new_photo")
         .eq("id", data.user.id)
         .single()
         .then(({ data: profile, error }) => {
@@ -133,6 +134,7 @@ export default function DashboardPage() {
           if (profile) {
             console.log("[dashboard] role chargé:", profile.role);
             setRole(profile.role ?? "user");
+            setProfileDisplayName(profile.display_name ?? "");
             setNotifNewPhoto(profile.notif_new_photo ?? false);
           }
         });
@@ -271,7 +273,10 @@ export default function DashboardPage() {
   }
 
   const userName =
-    (user?.user_metadata?.name as string | undefined) ?? user?.email ?? "";
+    profileDisplayName ||
+    (user?.user_metadata?.name as string | undefined) ||
+    user?.email ||
+    "";
 
   return (
     <div className="min-h-screen bg-black text-white flex">

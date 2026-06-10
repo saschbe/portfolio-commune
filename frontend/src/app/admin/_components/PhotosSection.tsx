@@ -9,10 +9,12 @@ import { resizeImage } from "@/lib/resizeImage";
 import { deletePhotoFiles } from "@/lib/deletePhoto";
 import { imageUrl, imageProps } from "@/lib/imageUrl";
 
-const LocationPicker = dynamic(
-  () => import("@/components/LocationPicker"),
-  { ssr: false, loading: () => <div className="w-full h-50 rounded-xl border border-white/10 bg-white/5 animate-pulse" /> }
-);
+const LocationPicker = dynamic(() => import("@/components/LocationPicker"), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-50 rounded-xl border border-white/10 bg-white/5 animate-pulse" />
+  ),
+});
 
 const villages = [
   "Plombières",
@@ -118,48 +120,77 @@ export default function PhotosSection() {
 
     try {
       const uuid = crypto.randomUUID();
-      const ext  = form.file.name.split(".").pop()?.toLowerCase() ?? "jpg";
+      const ext = form.file.name.split(".").pop()?.toLowerCase() ?? "jpg";
       const originalFilename = `${uuid}.${ext}`;
-      const webpFilename     = `${uuid}.webp`;
+      const webpFilename = `${uuid}.webp`;
 
       const { error: origError } = await supabase.storage
         .from("photos-originals")
         .upload(originalFilename, form.file, {
-          contentType: form.file.type, cacheControl: "31536000", upsert: false,
+          contentType: form.file.type,
+          cacheControl: "31536000",
+          upsert: false,
         });
       if (origError) throw origError;
 
       const [thumbBlob, mediumBlob, fullBlob] = await Promise.all([
-        resizeImage(form.file, 400,  0.75),
-        resizeImage(form.file, 900,  0.82),
-        resizeImage(form.file, 1920, 0.90),
+        resizeImage(form.file, 400, 0.75),
+        resizeImage(form.file, 900, 0.82),
+        resizeImage(form.file, 1920, 0.9),
       ]);
       await Promise.all([
-        supabase.storage.from("photos").upload(`thumb/${webpFilename}`,  thumbBlob,  { contentType: "image/webp", cacheControl: "31536000", upsert: false }),
-        supabase.storage.from("photos").upload(`medium/${webpFilename}`, mediumBlob, { contentType: "image/webp", cacheControl: "31536000", upsert: false }),
-        supabase.storage.from("photos").upload(`full/${webpFilename}`,   fullBlob,   { contentType: "image/webp", cacheControl: "31536000", upsert: false }),
+        supabase.storage
+          .from("photos")
+          .upload(`thumb/${webpFilename}`, thumbBlob, {
+            contentType: "image/webp",
+            cacheControl: "31536000",
+            upsert: false,
+          }),
+        supabase.storage
+          .from("photos")
+          .upload(`medium/${webpFilename}`, mediumBlob, {
+            contentType: "image/webp",
+            cacheControl: "31536000",
+            upsert: false,
+          }),
+        supabase.storage
+          .from("photos")
+          .upload(`full/${webpFilename}`, fullBlob, {
+            contentType: "image/webp",
+            cacheControl: "31536000",
+            upsert: false,
+          }),
       ]);
 
-      const { data: inserted, error: insertError } = await supabase.from("photos").insert({
-        src:         webpFilename,
-        title:       form.title,
-        village:     form.village,
-        year:        form.year,
-        description: form.description,
-        type:        form.type,
-        restored:    form.restored,
-        timeline:    form.year,
-        latitude:    form.latitude  !== "" ? parseFloat(form.latitude)  : null,
-        longitude:   form.longitude !== "" ? parseFloat(form.longitude) : null,
-      }).select("id").single();
+      const { data: inserted, error: insertError } = await supabase
+        .from("photos")
+        .insert({
+          src: webpFilename,
+          title: form.title,
+          village: form.village,
+          year: form.year,
+          description: form.description,
+          type: form.type,
+          restored: form.restored,
+          timeline: form.year,
+          latitude: form.latitude !== "" ? parseFloat(form.latitude) : null,
+          longitude: form.longitude !== "" ? parseFloat(form.longitude) : null,
+        })
+        .select("id")
+        .single();
       if (insertError) throw insertError;
 
       await logActivite({
-        type:        "photo_importee",
+        type: "photo_importee",
         description: `Photo ajoutée : "${form.title}" (${form.village})`,
-        photo_id:    inserted?.id,
-        actor_id:    currentUserId.current,
-        meta: { title: form.title, village: form.village, year: form.year, type: form.type },
+        photo_id: inserted?.id,
+        actor_id: currentUserId.current,
+        meta: {
+          title: form.title,
+          village: form.village,
+          year: form.year,
+          type: form.type,
+        },
       });
 
       setForm(defaultForm);
@@ -172,20 +203,48 @@ export default function PhotosSection() {
   }
 
   async function handleDelete(photo: Photo) {
-    if (!window.confirm(`Supprimer "${photo.title}" ? Cette action est irréversible.`))
+    if (
+      !window.confirm(
+        `Supprimer "${photo.title}" ? Cette action est irréversible.`,
+      )
+    )
       return;
     setDeletingId(photo.id);
-    await logActivite({
-      type:        "photo_supprimee",
-      description: `Photo supprimée : "${photo.title}" (${photo.village})`,
-      photo_id:    photo.id,
-      actor_id:    currentUserId.current,
-      meta: { title: photo.title, village: photo.village, year: photo.year, src: photo.src },
-    });
-    await deletePhotoFiles(photo.src);
-    await supabase.from("photos").delete().eq("id", photo.id);
-    setDeletingId(null);
-    setPhotos((prev) => prev.filter((p) => p.id !== photo.id));
+    try {
+      // Log AVANT delete (sinon FK violation car photo_id n'existera plus)
+      await logActivite({
+        type: "photo_supprimee",
+        description: `Photo supprimée : "${photo.title}" (${photo.village})`,
+        photo_id: photo.id,
+        actor_id: currentUserId.current,
+        meta: {
+          title: photo.title,
+          village: photo.village,
+          year: photo.year,
+          src: photo.src,
+        },
+      });
+      await deletePhotoFiles(photo.src);
+      const { data, error } = await supabase
+        .from("photos")
+        .delete()
+        .eq("id", photo.id)
+        .select();
+      console.log("[photos] delete — response:", { data, error });
+      if (error) {
+        alert(`Erreur suppression : ${error.message}`);
+        return;
+      }
+      if (!data || data.length === 0) {
+        alert(
+          "Aucune ligne supprimée — vérifiez les politiques RLS de la table photos.",
+        );
+        return;
+      }
+      setPhotos((prev) => prev.filter((p) => p.id !== photo.id));
+    } finally {
+      setDeletingId(null);
+    }
   }
 
   async function handleEditSave(e: { preventDefault(): void }) {
@@ -212,32 +271,32 @@ export default function PhotosSection() {
       return;
     }
     await logActivite({
-      type:        "photo_modifiee",
+      type: "photo_modifiee",
       description: `Photo modifiée : "${editPhoto.title}" (${editPhoto.village})`,
-      photo_id:    editPhoto.id,
-      actor_id:    currentUserId.current,
+      photo_id: editPhoto.id,
+      actor_id: currentUserId.current,
       details: {
         before: {
-          title:       original?.title,
-          village:     original?.village,
-          year:        original?.year,
+          title: original?.title,
+          village: original?.village,
+          year: original?.year,
           description: original?.description,
-          type:        original?.type,
-          restored:    original?.restored,
+          type: original?.type,
+          restored: original?.restored,
         },
         after: {
-          title:       editPhoto.title,
-          village:     editPhoto.village,
-          year:        editPhoto.year,
+          title: editPhoto.title,
+          village: editPhoto.village,
+          year: editPhoto.year,
           description: editPhoto.description,
-          type:        editPhoto.type,
-          restored:    editPhoto.restored,
+          type: editPhoto.type,
+          restored: editPhoto.restored,
         },
       },
     });
     setEditStatus("success");
     setPhotos((prev) =>
-      prev.map((p) => (p.id === editPhoto.id ? { ...p, ...editPhoto } : p))
+      prev.map((p) => (p.id === editPhoto.id ? { ...p, ...editPhoto } : p)),
     );
     setTimeout(() => {
       setEditPhoto(null);
@@ -334,21 +393,34 @@ export default function PhotosSection() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className={labelClass}>Latitude</label>
-                <input type="number" step="any" value={form.latitude}
+                <input
+                  type="number"
+                  step="any"
+                  value={form.latitude}
                   onChange={(e) => setField("latitude", e.target.value)}
-                  placeholder="50.727" className={inputClass} />
+                  placeholder="50.727"
+                  className={inputClass}
+                />
               </div>
               <div>
                 <label className={labelClass}>Longitude</label>
-                <input type="number" step="any" value={form.longitude}
+                <input
+                  type="number"
+                  step="any"
+                  value={form.longitude}
                   onChange={(e) => setField("longitude", e.target.value)}
-                  placeholder="5.958" className={inputClass} />
+                  placeholder="5.958"
+                  className={inputClass}
+                />
               </div>
             </div>
             <LocationPicker
               lat={form.latitude}
               lng={form.longitude}
-              onChange={(lat, lng) => { setField("latitude", lat); setField("longitude", lng); }}
+              onChange={(lat, lng) => {
+                setField("latitude", lat);
+                setField("longitude", lng);
+              }}
             />
             <div className="flex items-center gap-3">
               <input
@@ -437,8 +509,12 @@ export default function PhotosSection() {
                 <button
                   onClick={() => {
                     setEditPhoto(photo);
-                    setEditLatStr(photo.latitude != null ? String(photo.latitude) : "");
-                    setEditLngStr(photo.longitude != null ? String(photo.longitude) : "");
+                    setEditLatStr(
+                      photo.latitude != null ? String(photo.latitude) : "",
+                    );
+                    setEditLngStr(
+                      photo.longitude != null ? String(photo.longitude) : "",
+                    );
                     setEditStatus("idle");
                   }}
                   className="px-3 py-1.5 rounded-lg border border-white/10 text-white/50 text-xs uppercase tracking-[0.15em] hover:border-cyan-300/40 hover:text-cyan-300 transition-all"
@@ -545,21 +621,34 @@ export default function PhotosSection() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className={labelClass}>Latitude</label>
-                  <input type="number" step="any" value={editLatStr}
+                  <input
+                    type="number"
+                    step="any"
+                    value={editLatStr}
                     onChange={(e) => setEditLatStr(e.target.value)}
-                    placeholder="50.727" className={inputClass} />
+                    placeholder="50.727"
+                    className={inputClass}
+                  />
                 </div>
                 <div>
                   <label className={labelClass}>Longitude</label>
-                  <input type="number" step="any" value={editLngStr}
+                  <input
+                    type="number"
+                    step="any"
+                    value={editLngStr}
                     onChange={(e) => setEditLngStr(e.target.value)}
-                    placeholder="5.958" className={inputClass} />
+                    placeholder="5.958"
+                    className={inputClass}
+                  />
                 </div>
               </div>
               <LocationPicker
                 lat={editLatStr}
                 lng={editLngStr}
-                onChange={(lat, lng) => { setEditLatStr(lat); setEditLngStr(lng); }}
+                onChange={(lat, lng) => {
+                  setEditLatStr(lat);
+                  setEditLngStr(lng);
+                }}
               />
               <div className="flex items-center gap-3">
                 <input

@@ -12,11 +12,14 @@ const labelClass =
   "block text-xs uppercase tracking-[0.25em] text-white/50 mb-2";
 
 export default function RegisterPage() {
-  const [name, setName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
-  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [status, setStatus] = useState<
+    "idle" | "loading" | "success" | "error"
+  >("idle");
   const [errorMsg, setErrorMsg] = useState("");
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const turnstileRef = useRef<TurnstileInstance>(null);
@@ -31,6 +34,15 @@ export default function RegisterPage() {
     }
     if (password.length < 6) {
       setErrorMsg("Le mot de passe doit contenir au moins 6 caractères.");
+      setStatus("error");
+      return;
+    }
+    const trimmedFirst = firstName.trim();
+    const trimmedLast = lastName.trim();
+    if (trimmedFirst.length < 2 || trimmedLast.length < 2) {
+      setErrorMsg(
+        "Veuillez renseigner votre prénom et votre nom (2 caractères minimum).",
+      );
       setStatus("error");
       return;
     }
@@ -60,7 +72,11 @@ export default function RegisterPage() {
       email,
       password,
       options: {
-        data: { name },
+        data: {
+          first_name: trimmedFirst,
+          last_name: trimmedLast,
+          display_name: `${trimmedFirst} ${trimmedLast.charAt(0).toUpperCase()}.`,
+        },
       },
     });
 
@@ -74,11 +90,19 @@ export default function RegisterPage() {
     if (data.user) {
       await supabase
         .from("profiles")
-        .upsert({ id: data.user.id, role: "user" }, { onConflict: "id" });
+        .upsert(
+          {
+            id: data.user.id,
+            role: "user",
+            first_name: trimmedFirst,
+            last_name: trimmedLast,
+          },
+          { onConflict: "id" },
+        );
 
       await supabase.from("activites").insert({
         type: "new_member",
-        description: `Nouvel inscrit : ${data.user.email}`,
+        description: `Nouvel inscrit : ${trimmedFirst} ${trimmedLast.charAt(0).toUpperCase()}. (${data.user.email})`,
         meta: { email: data.user.email, user_id: data.user.id },
       });
     }
@@ -100,7 +124,8 @@ export default function RegisterPage() {
             Inscription réussie
           </h2>
           <p className="text-white/50 leading-relaxed mb-3">
-            Votre compte a bien été créé avec le rôle <span className="text-white/70">utilisateur</span>.
+            Votre compte a bien été créé avec le rôle{" "}
+            <span className="text-white/70">utilisateur</span>.
           </p>
           <p className="text-white/35 text-sm leading-relaxed mb-10">
             Un administrateur doit valider votre accès avant que vous puissiez
@@ -132,17 +157,33 @@ export default function RegisterPage() {
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-5">
-          <div>
-            <label className={labelClass}>Nom</label>
-            <input
-              type="text"
-              required
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Votre nom complet"
-              autoComplete="name"
-              className={inputClass}
-            />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className={labelClass}>Prénom</label>
+              <input
+                type="text"
+                required
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                placeholder="Prénom"
+                autoComplete="given-name"
+                maxLength={50}
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Nom</label>
+              <input
+                type="text"
+                required
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                placeholder="Nom"
+                autoComplete="family-name"
+                maxLength={50}
+                className={inputClass}
+              />
+            </div>
           </div>
 
           <div>
@@ -212,8 +253,13 @@ export default function RegisterPage() {
             <Turnstile
               ref={turnstileRef}
               siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
-              onSuccess={(token) => { setTurnstileToken(token); if (status === "error") setStatus("idle"); }}
-              onExpire={() => { setTurnstileToken(null); }}
+              onSuccess={(token) => {
+                setTurnstileToken(token);
+                if (status === "error") setStatus("idle");
+              }}
+              onExpire={() => {
+                setTurnstileToken(null);
+              }}
               options={{ theme: "dark", size: "normal" }}
             />
           </div>
