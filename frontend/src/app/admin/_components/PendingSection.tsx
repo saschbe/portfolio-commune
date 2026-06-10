@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import { logActivite } from "@/lib/logActivite";
+import { deletePhotoFiles } from "@/lib/deletePhoto";
 import { imageUrl, imageProps } from "@/lib/imageUrl";
 
 type Photo = {
@@ -90,14 +91,7 @@ export default function PendingSection({
     setActionError(null);
     console.log("[pending] reject — id:", photo.id);
     try {
-      const filename = photo.src.split("/").pop();
-      if (filename) {
-        const { error: storageError } = await supabase.storage
-          .from("photos")
-          .remove([filename]);
-        if (storageError)
-          console.warn("[pending] reject storage:", storageError);
-      }
+      await deletePhotoFiles(photo.src);
       const { data, error } = await supabase
         .from("photos")
         .delete()
@@ -158,17 +152,16 @@ export default function PendingSection({
           {photos.map((photo) => (
             <div
               key={photo.id}
-              className="bg-white/[0.02] border border-white/10 rounded-2xl overflow-hidden hover:border-white/20 transition-all"
+              className="bg-white/2 border border-white/10 rounded-2xl overflow-hidden hover:border-white/20 transition-all"
             >
               <div className="flex gap-4 p-4">
                 {/* Thumbnail */}
                 <div className="relative w-28 h-20 rounded-xl overflow-hidden shrink-0 bg-white/5">
                   <Image
-                    src={imageUrl(photo.src)}
+                    src={imageUrl(photo.src, "thumb")}
                     alt={photo.title}
                     fill
                     sizes="112px"
-                    quality={imageProps("thumb").quality}
                     className="object-cover"
                   />
                 </div>

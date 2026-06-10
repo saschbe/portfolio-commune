@@ -9,9 +9,17 @@ import type { User } from "@supabase/supabase-js";
 
 function UserIcon() {
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
-      stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"
-      strokeLinejoin="round" aria-hidden="true">
+    <svg
+      width="22"
+      height="22"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       <circle cx="12" cy="8" r="4" />
       <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
     </svg>
@@ -21,6 +29,17 @@ function UserIcon() {
 const SECTIONS = [
   {
     num: "01",
+    title: "Qui sommes-nous",
+    items: [
+      "Plombières en Images est un projet porté par un collectif de bénévoles passionnés de photographie et attachés à la commune de Plombières.",
+      "Notre seul objectif est de préserver, archiver et partager le patrimoine photographique de notre entité communale et de ses villages (Gemmenich, Hombourg, Montzen, Moresnet, Plombières, Sippenaeken).",
+      "Le projet est entièrement bénévole : aucune personne impliquée dans la gestion, la modération ou le développement du site ne perçoit de rémunération.",
+      "Le site ne diffuse aucune publicité et ne poursuit aucun but commercial.",
+    ],
+  },
+
+  {
+    num: "02",
     title: "Conditions d'utilisation",
     items: [
       "Le site est destiné à la préservation du patrimoine photographique des villages de la commune de Plombières.",
@@ -31,7 +50,7 @@ const SECTIONS = [
     ],
   },
   {
-    num: "02",
+    num: "03",
     title: "Protection des personnes",
     items: [
       "Toute photo représentant des personnes identifiables doit avoir été prise avec leur consentement ou celui de leurs ayants droit.",
@@ -39,7 +58,7 @@ const SECTIONS = [
     ],
   },
   {
-    num: "03",
+    num: "04",
     title: "Disclaimer",
     items: [
       "Les photos anciennes peuvent provenir de collections privées ou publiques.",
@@ -52,8 +71,9 @@ const SECTIONS = [
 
 export default function MentionsLegalesPage() {
   const router = useRouter();
-  const [user, setUser]                 = useState<User | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [isPrivileged, setIsPrivileged] = useState(false);
+  const [profileDisplayName, setProfileDisplayName] = useState("");
   const [userDropdown, setUserDropdown] = useState(false);
   const userDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -62,17 +82,24 @@ export default function MentionsLegalesPage() {
       setUser(data.user);
       if (data.user) fetchRole(data.user.id);
     });
-    const { data: listener } = supabase.auth.onAuthStateChange((_e, session) => {
-      setUser(session?.user ?? null);
-      if (session?.user) fetchRole(session.user.id);
-      else setIsPrivileged(false);
-    });
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      (_e, session) => {
+        setUser(session?.user ?? null);
+        if (session?.user) fetchRole(session.user.id);
+        else setIsPrivileged(false);
+      },
+    );
     return () => listener.subscription.unsubscribe();
   }, []);
 
   async function fetchRole(userId: string) {
-    const { data } = await supabase.from("profiles").select("role").eq("id", userId).single();
+    const { data } = await supabase
+      .from("profiles")
+      .select("role, display_name")
+      .eq("id", userId)
+      .single();
     setIsPrivileged(["admin", "moderator"].includes(data?.role ?? ""));
+    setProfileDisplayName(data?.display_name ?? "");
   }
 
   async function handleLogout() {
@@ -83,29 +110,35 @@ export default function MentionsLegalesPage() {
 
   useEffect(() => {
     function onDown(e: MouseEvent) {
-      if (userDropdownRef.current && !userDropdownRef.current.contains(e.target as Node))
+      if (
+        userDropdownRef.current &&
+        !userDropdownRef.current.contains(e.target as Node)
+      )
         setUserDropdown(false);
     }
     document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
   }, []);
 
-  const displayName = (user?.user_metadata?.name as string | undefined) ?? user?.email?.split("@")[0] ?? "";
-  const spaceHref   = isPrivileged ? "/admin" : "/dashboard";
-  const spaceLabel  = isPrivileged ? "Administration" : "Mon espace";
+  const displayName =
+    profileDisplayName ||
+    (user?.user_metadata?.name as string | undefined) ||
+    user?.email?.split("@")[0] ||
+    "";
+  const spaceHref = isPrivileged ? "/admin" : "/dashboard";
+  const spaceLabel = isPrivileged ? "Administration" : "Mon espace";
 
   return (
     <div className="min-h-screen bg-black text-white">
-
       {/* ── Header ───────────────────────────────────────────────────────── */}
       <header className="fixed top-0 left-0 w-full z-50 backdrop-blur-xl bg-black/50 border-b border-white/10">
         <div className="max-w-7xl mx-auto px-6 py-5 flex items-center justify-between gap-10">
-
           <Link href="/" className="shrink-0">
             <Image
               src="/images/logo-white.png"
               alt="Plombières en Images"
-              width={0} height={0}
+              width={0}
+              height={0}
               loading="eager"
               sizes="100vw"
               className="w-[130px] md:w-[190px] lg:w-[280px] xl:w-[320px] h-auto drop-shadow-[0_0_12px_rgba(255,255,255,0.35)]"
@@ -114,8 +147,18 @@ export default function MentionsLegalesPage() {
 
           {/* Nav desktop */}
           <nav className="hidden md:flex items-center gap-10 ml-10 text-sm uppercase tracking-[0.2em] text-white">
-            <Link href="/" className="hover:text-cyan-300 transition-all duration-300">Accueil</Link>
-            <Link href="/galerie" className="text-white/50 hover:text-cyan-300 transition-all duration-300">Galerie</Link>
+            <Link
+              href="/"
+              className="hover:text-cyan-300 transition-all duration-300"
+            >
+              Accueil
+            </Link>
+            <Link
+              href="/galerie"
+              className="text-white/50 hover:text-cyan-300 transition-all duration-300"
+            >
+              Galerie
+            </Link>
 
             {user ? (
               <div className="relative" ref={userDropdownRef}>
@@ -129,23 +172,35 @@ export default function MentionsLegalesPage() {
                 {userDropdown && (
                   <div className="absolute right-0 top-full mt-3 w-48 bg-zinc-950/95 backdrop-blur-md border border-white/10 rounded-2xl overflow-hidden shadow-[0_8px_40px_rgba(0,0,0,0.6)]">
                     <div className="px-4 py-3 border-b border-white/5">
-                      <p className="text-xs text-white/60 truncate">{displayName}</p>
-                      <p className="text-[10px] text-white/30 truncate mt-0.5">{user.email}</p>
+                      <p className="text-xs text-white/60 truncate">
+                        {displayName}
+                      </p>
+                      <p className="text-[10px] text-white/30 truncate mt-0.5">
+                        {user.email}
+                      </p>
                     </div>
-                    <Link href={spaceHref} onClick={() => setUserDropdown(false)}
-                      className="flex items-center px-4 py-3 text-xs uppercase tracking-[0.2em] text-white/70 hover:text-cyan-300 hover:bg-white/5 transition-all">
+                    <Link
+                      href={spaceHref}
+                      onClick={() => setUserDropdown(false)}
+                      className="flex items-center px-4 py-3 text-xs uppercase tracking-[0.2em] text-white/70 hover:text-cyan-300 hover:bg-white/5 transition-all"
+                    >
                       {spaceLabel}
                     </Link>
-                    <button onClick={handleLogout}
-                      className="w-full text-left px-4 py-3 text-xs uppercase tracking-[0.2em] text-white/40 hover:text-red-400 hover:bg-white/5 transition-all border-t border-white/5">
+                    <button
+                      onClick={handleLogout}
+                      className="w-full text-left px-4 py-3 text-xs uppercase tracking-[0.2em] text-white/40 hover:text-red-400 hover:bg-white/5 transition-all border-t border-white/5"
+                    >
                       Se déconnecter
                     </button>
                   </div>
                 )}
               </div>
             ) : (
-              <Link href="/login" aria-label="Se connecter"
-                className="text-white/70 hover:text-cyan-300 transition-all duration-300">
+              <Link
+                href="/login"
+                aria-label="Se connecter"
+                className="text-white/70 hover:text-cyan-300 transition-all duration-300"
+              >
                 <UserIcon />
               </Link>
             )}
@@ -155,26 +210,37 @@ export default function MentionsLegalesPage() {
           <div className="md:hidden flex items-center gap-4">
             {user ? (
               <div className="relative" ref={userDropdownRef}>
-                <button onClick={() => setUserDropdown(!userDropdown)} aria-label="Mon compte"
-                  className={`transition-colors duration-300 ${userDropdown ? "text-cyan-300" : "text-white/60 hover:text-cyan-300"}`}>
+                <button
+                  onClick={() => setUserDropdown(!userDropdown)}
+                  aria-label="Mon compte"
+                  className={`transition-colors duration-300 ${userDropdown ? "text-cyan-300" : "text-white/60 hover:text-cyan-300"}`}
+                >
                   <UserIcon />
                 </button>
                 {userDropdown && (
                   <div className="absolute right-0 top-full mt-3 w-48 bg-zinc-950/95 backdrop-blur-md border border-white/10 rounded-2xl overflow-hidden shadow-[0_8px_40px_rgba(0,0,0,0.6)]">
-                    <Link href={spaceHref} onClick={() => setUserDropdown(false)}
-                      className="flex items-center px-4 py-3 text-xs uppercase tracking-[0.2em] text-white/70 hover:text-cyan-300 hover:bg-white/5 transition-all">
+                    <Link
+                      href={spaceHref}
+                      onClick={() => setUserDropdown(false)}
+                      className="flex items-center px-4 py-3 text-xs uppercase tracking-[0.2em] text-white/70 hover:text-cyan-300 hover:bg-white/5 transition-all"
+                    >
                       {spaceLabel}
                     </Link>
-                    <button onClick={handleLogout}
-                      className="w-full text-left px-4 py-3 text-xs uppercase tracking-[0.2em] text-white/40 hover:text-red-400 hover:bg-white/5 transition-all border-t border-white/5">
+                    <button
+                      onClick={handleLogout}
+                      className="w-full text-left px-4 py-3 text-xs uppercase tracking-[0.2em] text-white/40 hover:text-red-400 hover:bg-white/5 transition-all border-t border-white/5"
+                    >
                       Se déconnecter
                     </button>
                   </div>
                 )}
               </div>
             ) : (
-              <Link href="/login" aria-label="Se connecter"
-                className="text-white/60 hover:text-cyan-300 transition-all duration-300">
+              <Link
+                href="/login"
+                aria-label="Se connecter"
+                className="text-white/60 hover:text-cyan-300 transition-all duration-300"
+              >
                 <UserIcon />
               </Link>
             )}
@@ -184,25 +250,28 @@ export default function MentionsLegalesPage() {
 
       {/* ── Contenu ──────────────────────────────────────────────────────── */}
       <div className="max-w-3xl mx-auto px-6 pt-36 pb-24">
-
         {/* Titre */}
         <div className="mb-16">
           <p className="text-cyan-300 text-[10px] uppercase tracking-[0.45em] mb-4">
             Informations légales
           </p>
           <h1 className="text-3xl md:text-5xl font-light uppercase tracking-[0.15em] leading-[1.2]">
-            Mentions<br className="md:hidden" /> légales
+            Mentions
+            <br className="md:hidden" /> légales
           </h1>
           <p className="mt-5 text-white/30 text-sm leading-relaxed max-w-md">
-            Règles d'utilisation et informations légales relatives au site Plombières en Images.
+            Règles d'utilisation et informations légales relatives au site
+            Plombières en Images.
           </p>
         </div>
 
         {/* Sections 01–03 */}
         <div className="space-y-6">
           {SECTIONS.map((section) => (
-            <div key={section.num}
-              className="bg-white/[0.02] border border-white/10 backdrop-blur-md rounded-3xl p-8 md:p-10">
+            <div
+              key={section.num}
+              className="bg-white/2 border border-white/10 backdrop-blur-md rounded-3xl p-8 md:p-10"
+            >
               <div className="flex items-start gap-6 mb-6">
                 <span className="text-cyan-300 text-[11px] uppercase tracking-[0.35em] tabular-nums shrink-0 mt-1">
                   {section.num}
@@ -215,7 +284,9 @@ export default function MentionsLegalesPage() {
                 {section.items.map((item, i) => (
                   <li key={i} className="flex items-start gap-4">
                     <span className="mt-2 shrink-0 w-1 h-1 rounded-full bg-cyan-300/40" />
-                    <p className="text-white/55 text-sm leading-relaxed">{item}</p>
+                    <p className="text-white/55 text-sm leading-relaxed">
+                      {item}
+                    </p>
                   </li>
                 ))}
               </ul>
@@ -223,7 +294,7 @@ export default function MentionsLegalesPage() {
           ))}
 
           {/* Section 04 — RGPD & contact */}
-          <div className="bg-white/[0.02] border border-cyan-300/20 backdrop-blur-md rounded-3xl p-8 md:p-10">
+          <div className="bg-white/2 border border-cyan-300/20 backdrop-blur-md rounded-3xl p-8 md:p-10">
             <div className="flex items-start gap-6 mb-6">
               <span className="text-cyan-300 text-[11px] uppercase tracking-[0.35em] tabular-nums shrink-0 mt-1">
                 04
@@ -235,8 +306,9 @@ export default function MentionsLegalesPage() {
             <div className="flex items-start gap-4 mb-8">
               <span className="mt-2 shrink-0 w-1 h-1 rounded-full bg-cyan-300/40" />
               <p className="text-white/55 text-sm leading-relaxed">
-                Pour toute demande de retrait d'image, exercice de vos droits (accès, rectification, suppression)
-                ou signalement d'un contenu non conforme, contactez notre équipe à l'adresse suivante&nbsp;:
+                Pour toute demande de retrait d'image, exercice de vos droits
+                (accès, rectification, suppression) ou signalement d'un contenu
+                non conforme, contactez notre équipe à l'adresse suivante&nbsp;:
               </p>
             </div>
             <a
@@ -253,8 +325,10 @@ export default function MentionsLegalesPage() {
           <p className="text-white/20 text-[10px] uppercase tracking-[0.25em]">
             © {new Date().getFullYear()} Plombières en Images
           </p>
-          <Link href="/"
-            className="text-white/30 hover:text-cyan-300 text-[10px] uppercase tracking-[0.25em] transition-colors duration-300">
+          <Link
+            href="/"
+            className="text-white/30 hover:text-cyan-300 text-[10px] uppercase tracking-[0.25em] transition-colors duration-300"
+          >
             ← Retour à l&apos;accueil
           </Link>
         </div>

@@ -7,6 +7,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { Turnstile } from "@marsidev/react-turnstile";
 import { imageUrl, imageProps } from "@/lib/imageUrl";
+import { resizeImage } from "@/lib/resizeImage";
 import type { TurnstileInstance } from "@marsidev/react-turnstile";
 import { supabase } from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
@@ -65,7 +66,7 @@ const defaultForm: FormState = {
 };
 
 const inputClass =
-  "w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-cyan-300/60 focus:bg-white/[0.07] transition-all duration-200";
+  "w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-cyan-300/60 focus:bg-white/7 transition-all duration-200";
 const labelClass =
   "block text-xs uppercase tracking-[0.25em] text-white/50 mb-2";
 
@@ -99,6 +100,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [role, setRole] = useState<string>("user");
+  const [profileDisplayName, setProfileDisplayName] = useState("");
   const [notifNewPhoto, setNotifNewPhoto] = useState(false);
   const [savingNotif, setSavingNotif] = useState(false);
   const [photos, setPhotos] = useState<Photo[]>([]);
@@ -120,7 +122,7 @@ export default function DashboardPage() {
       loadPhotos(data.user.id);
       supabase
         .from("profiles")
-        .select("role, notif_new_photo")
+        .select("role, display_name, notif_new_photo")
         .eq("id", data.user.id)
         .single()
         .then(({ data: profile, error }) => {
@@ -132,6 +134,7 @@ export default function DashboardPage() {
           if (profile) {
             console.log("[dashboard] role chargé:", profile.role);
             setRole(profile.role ?? "user");
+            setProfileDisplayName(profile.display_name ?? "");
             setNotifNewPhoto(profile.notif_new_photo ?? false);
           }
         });
@@ -191,25 +194,31 @@ export default function DashboardPage() {
       return;
     }
 
-    const ext = form.file.name.split(".").pop();
-    const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+    const uuid = crypto.randomUUID();
+    const ext  = form.file.name.split(".").pop()?.toLowerCase() ?? "jpg";
+    const originalFilename = `${uuid}.${ext}`;
+    const webpFilename     = `${uuid}.webp`;
 
-    const { error: uploadError } = await supabase.storage
-      .from("photos")
-      .upload(filename, form.file, { cacheControl: "3600", upsert: false });
+    const { error: origError } = await supabase.storage
+      .from("photos-originals")
+      .upload(originalFilename, form.file, {
+        contentType: form.file.type, cacheControl: "31536000", upsert: false,
+      });
+    if (origError) { setSubmitError(origError.message); setSubmitStatus("error"); return; }
 
-    if (uploadError) {
-      setSubmitError(uploadError.message);
-      setSubmitStatus("error");
-      return;
-    }
-
-    const { data: urlData } = supabase.storage
-      .from("photos")
-      .getPublicUrl(filename);
+    const [thumbBlob, mediumBlob, fullBlob] = await Promise.all([
+      resizeImage(form.file, 400,  0.75),
+      resizeImage(form.file, 900,  0.82),
+      resizeImage(form.file, 1920, 0.90),
+    ]);
+    await Promise.all([
+      supabase.storage.from("photos").upload(`thumb/${webpFilename}`,  thumbBlob,  { contentType: "image/webp", cacheControl: "31536000", upsert: false }),
+      supabase.storage.from("photos").upload(`medium/${webpFilename}`, mediumBlob, { contentType: "image/webp", cacheControl: "31536000", upsert: false }),
+      supabase.storage.from("photos").upload(`full/${webpFilename}`,   fullBlob,   { contentType: "image/webp", cacheControl: "31536000", upsert: false }),
+    ]);
 
     const { error: insertError } = await supabase.from("photos").insert({
-      src: urlData.publicUrl,
+      src: webpFilename,
       title: form.title,
       village: form.village,
       year: form.year,
@@ -264,7 +273,10 @@ export default function DashboardPage() {
   }
 
   const userName =
-    (user?.user_metadata?.name as string | undefined) ?? user?.email ?? "";
+    profileDisplayName ||
+    (user?.user_metadata?.name as string | undefined) ||
+    user?.email ||
+    "";
 
   return (
     <div className="min-h-screen bg-black text-white flex">
@@ -372,7 +384,7 @@ export default function DashboardPage() {
             </div>
 
             {showForm && (
-              <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-6">
+              <div className="bg-white/2 border border-white/10 rounded-2xl p-6">
                 <p className="text-xs text-white/30 mb-6">
                   Votre photo sera examinée par un modérateur avant d&apos;être
                   publiée sur le site.
@@ -568,11 +580,10 @@ export default function DashboardPage() {
                   >
                     <div className="relative w-16 h-12 rounded-lg overflow-hidden shrink-0 bg-white/5">
                       <Image
-                        src={imageUrl(photo.src)}
+                        src={imageUrl(photo.src, "thumb")}
                         alt={photo.title}
                         fill
                         sizes="64px"
-                        quality={imageProps("thumb").quality}
                         className="object-cover"
                       />
                     </div>

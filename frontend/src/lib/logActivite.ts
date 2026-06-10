@@ -8,7 +8,10 @@ export type LogType =
   | "statut_modifie"
   | "photo_modifiee"
   | "photo_supprimee"
-  | "signalement_traite";
+  | "signalement_traite"
+  | "temoignage_masque"
+  | "temoignage_restaure"
+  | "temoignage_supprime";
 
 export interface LogPayload {
   type: LogType;

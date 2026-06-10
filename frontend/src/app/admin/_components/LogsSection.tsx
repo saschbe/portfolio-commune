@@ -83,7 +83,7 @@ function DiffView({
   );
   if (changed.length === 0) return null;
   return (
-    <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl px-4 py-3 mt-3 space-y-1.5">
+    <div className="bg-white/3 border border-white/8 rounded-xl px-4 py-3 mt-3 space-y-1.5">
       {changed.map((k) => (
         <div key={k} className="flex items-center gap-2 flex-wrap">
           <span className="text-white/30 text-[10px] uppercase tracking-[0.2em] w-20 shrink-0">{k}</span>
@@ -280,7 +280,7 @@ export default function LogsSection() {
             return (
               <div
                 key={log.id}
-                className="flex gap-4 bg-white/[0.02] border border-white/[0.08] rounded-2xl px-5 py-4 hover:border-white/15 transition-all"
+                className="flex gap-4 bg-white/2 border border-white/8 rounded-2xl px-5 py-4 hover:border-white/15 transition-all"
               >
                 {/* Dot timeline */}
                 <div className={`w-2 h-2 rounded-full shrink-0 mt-2 ${cfg.dot}`} />
