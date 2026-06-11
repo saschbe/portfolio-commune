@@ -782,20 +782,10 @@ function PhotoContent() {
                   </div>
                 )}
 
-                {/* Partage */}
-                <div className="border-t border-white/5 pt-5">
-                  <ShareButtons
-                    url={`https://www.photoplombieres.eu/photo/${photo.id}`}
-                    title={photo.title}
-                  />
-                </div>
               </div>
 
-              {/* Témoignages — non animé, rechargé sur chaque photo */}
-              <Temoignages photoId={photo.id} />
-
               {/* Non animé : mini carte */}
-              {photo.latitude != null && photo.longitude != null && (
+              {photo.latitude != null && photo.longitude != null ? (
                 <div className="border-t border-white/5 pt-5">
                   <div className="flex items-center justify-between mb-3">
                     <p className="text-[10px] uppercase tracking-[0.25em] text-white/30">
@@ -814,9 +804,27 @@ function PhotoContent() {
                       longitude={photo.longitude}
                     />
                   </div>
+                  <div className="mt-5 pt-5 border-t border-white/5">
+                    <ShareButtons
+                      url={`https://www.photoplombieres.eu/photo/${photo.id}`}
+                      title={photo.title}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="border-t border-white/5 pt-5">
+                  <ShareButtons
+                    url={`https://www.photoplombieres.eu/photo/${photo.id}`}
+                    title={photo.title}
+                  />
                 </div>
               )}
             </div>
+          </div>
+
+          {/* Témoignages en pleine largeur sous la grille */}
+          <div className="mt-12 max-w-3xl mx-auto">
+            <Temoignages photoId={photo.id} />
           </div>
         </div>
       </main>

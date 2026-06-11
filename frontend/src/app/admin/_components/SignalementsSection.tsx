@@ -22,6 +22,7 @@ type Signalement = {
     year: string;
     description: string;
     type: string;
+    original_location: "supabase" | "r2";
   } | null;
 };
 
@@ -74,7 +75,7 @@ export default function SignalementsSection({ onCountChange }: { onCountChange: 
     setLoading(true);
     const { data, error } = await supabase
       .from("signalements")
-      .select("*, photos(title, src, village, year, description, type)")
+      .select("*, photos(title, src, village, year, description, type, original_location)")
       .order("created_at", { ascending: false });
     console.log("[signalements] load →", { data, error });
     setSignalements((data ?? []) as Signalement[]);
@@ -101,7 +102,7 @@ export default function SignalementsSection({ onCountChange }: { onCountChange: 
       actor_id:    currentUserId.current,
       meta: { signalement_id: s.id, raison: s.raison, title: s.photos?.title },
     });
-    await deletePhotoFiles(s.photos?.src ?? "");
+    await deletePhotoFiles(s.photos?.src ?? "", s.photos?.original_location ?? "supabase");
     await supabase.from("photos").delete().eq("id", s.photo_id);
     await supabase.from("signalements").update({ status: "resolved" }).eq("id", s.id);
     setSignalements((prev) => prev.filter((x) => x.id !== s.id));

@@ -17,6 +17,7 @@ type Photo = {
   type: string;
   restored: boolean;
   status: string;
+  original_location: "supabase" | "r2";
 };
 
 export default function PendingSection({
@@ -91,7 +92,7 @@ export default function PendingSection({
     setActionError(null);
     console.log("[pending] reject — id:", photo.id);
     try {
-      await deletePhotoFiles(photo.src);
+      await deletePhotoFiles(photo.src, photo.original_location);
       const { data, error } = await supabase
         .from("photos")
         .delete()

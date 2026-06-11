@@ -1,26 +1,37 @@
 import { supabase } from "@/lib/supabase";
 
-/**
- * Supprime une photo dans tous les buckets.
- * src = "uuid.webp" (nouvelles photos) ou URL complète Supabase (legacy).
- */
-export async function deletePhotoFiles(src: string): Promise<void> {
-  const filename = src.startsWith("http")
-    ? (src.split("/").pop() ?? "")
-    : src;
-
+export async function deletePhotoFiles(
+  src: string,
+  originalLocation: "supabase" | "r2" = "supabase",
+): Promise<void> {
+  const filename = src.startsWith("http") ? (src.split("/").pop() ?? "") : src;
   if (!filename) return;
 
   const webpName = filename.endsWith(".webp")
     ? filename
     : filename.replace(/\.[^.]+$/, ".webp");
 
-  await Promise.allSettled([
-    supabase.storage.from("photos").remove([`thumb/${webpName}`]),
-    supabase.storage.from("photos").remove([`medium/${webpName}`]),
-    supabase.storage.from("photos").remove([`full/${webpName}`]),
-    supabase.storage.from("photos-originals").remove([filename]),
-    // Compatibilité anciennes photos stockées à la racine du bucket
-    supabase.storage.from("photos").remove([filename]),
-  ]);
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token;
+
+  const res = await fetch("/api/delete-original", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ key: webpName, originalLocation }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Suppression fichiers : ${res.status} ${text}`);
+  }
+
+  const result = await res.json();
+  console.log("[deletePhotoFiles] result:", result);
+
+  if (result.original?.error) {
+    console.warn("[deletePhotoFiles] original delete warning:", result.original.error);
+  }
 }

@@ -36,6 +36,7 @@ type Photo = {
   restored: boolean;
   latitude: number | null;
   longitude: number | null;
+  original_location: "supabase" | "r2";
 };
 
 type FormState = {
@@ -124,14 +125,19 @@ export default function PhotosSection() {
       const originalFilename = `${uuid}.${ext}`;
       const webpFilename = `${uuid}.webp`;
 
-      const { error: origError } = await supabase.storage
-        .from("photos-originals")
-        .upload(originalFilename, form.file, {
-          contentType: form.file.type,
-          cacheControl: "31536000",
-          upsert: false,
-        });
-      if (origError) throw origError;
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const r2Form = new FormData();
+      r2Form.append("file", form.file);
+      r2Form.append("key", webpFilename);
+      const r2Res = await fetch("/api/upload-original", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: r2Form,
+      });
+      if (!r2Res.ok) throw new Error(`Original R2 : ${await r2Res.text()}`);
 
       const [thumbBlob, mediumBlob, fullBlob] = await Promise.all([
         resizeImage(form.file, 400, 0.75),
@@ -166,6 +172,7 @@ export default function PhotosSection() {
         .from("photos")
         .insert({
           src: webpFilename,
+          original_location: "r2",
           title: form.title,
           village: form.village,
           year: form.year,
@@ -224,7 +231,7 @@ export default function PhotosSection() {
           src: photo.src,
         },
       });
-      await deletePhotoFiles(photo.src);
+      await deletePhotoFiles(photo.src, photo.original_location);
       const { data, error } = await supabase
         .from("photos")
         .delete()

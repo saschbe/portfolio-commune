@@ -416,22 +416,21 @@ export default function UploadSection() {
 
   // ── Upload ────────────────────────────────────────────────────────────────
 
-  async function uploadEntry(entry: PhotoEntry, userId: string | undefined) {
+  async function uploadEntry(entry: PhotoEntry, userId: string | undefined, token: string | undefined) {
     updateEntry(entry.id, { status: "uploading" });
     try {
       const uuid = crypto.randomUUID();
-      const ext  = entry.file.name.split(".").pop()?.toLowerCase() ?? "jpg";
-      const originalFilename = `${uuid}.${ext}`;
-      const webpFilename     = `${uuid}.webp`;
+      const webpFilename = `${uuid}.webp`;
 
-      const { error: origError } = await supabase.storage
-        .from("photos-originals")
-        .upload(originalFilename, entry.file, {
-          contentType: entry.file.type,
-          cacheControl: "31536000",
-          upsert: false,
-        });
-      if (origError) throw new Error(`Original : ${origError.message}`);
+      const r2Form = new FormData();
+      r2Form.append("file", entry.file);
+      r2Form.append("key", webpFilename);
+      const r2Res = await fetch("/api/upload-original", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: r2Form,
+      });
+      if (!r2Res.ok) throw new Error(`Original R2 : ${await r2Res.text()}`);
 
       const [thumbBlob, mediumBlob, fullBlob] = await Promise.all([
         resizeImage(entry.file, 400,  0.75),
@@ -446,7 +445,11 @@ export default function UploadSection() {
       ]);
       const firstError = uploadErrors.find(Boolean);
       if (firstError) {
-        await supabase.storage.from("photos-originals").remove([originalFilename]);
+        await fetch("/api/delete-original", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ key: webpFilename }),
+        });
         throw new Error(`Upload : ${(firstError as { message: string }).message}`);
       }
 
@@ -463,6 +466,7 @@ export default function UploadSection() {
           latitude: entry.latitude ? parseFloat(entry.latitude) : null,
           longitude: entry.longitude ? parseFloat(entry.longitude) : null,
           src: webpFilename,
+          original_location: "r2",
           status: "approved",
           user_id: userId ?? null,
         })
@@ -493,15 +497,16 @@ export default function UploadSection() {
 
   async function handleSubmit() {
     setSubmitting(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    const userId = user?.id;
+    const { data: { session } } = await supabase.auth.getSession();
+    const userId = session?.user?.id;
+    const token  = session?.access_token;
 
     const ready = entries.filter(
       (e) => e.title.trim() !== "" && e.village !== "" && e.status === "idle",
     );
     for (let i = 0; i < ready.length; i += 4) {
       await Promise.all(
-        ready.slice(i, i + 4).map((e) => uploadEntry(e, userId)),
+        ready.slice(i, i + 4).map((e) => uploadEntry(e, userId, token)),
       );
     }
     setSubmitting(false);
