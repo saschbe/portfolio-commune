@@ -1,9 +1,11 @@
-import Header from "@/components/navigation/Header";
+import NavBar from "@/components/navigation/NavBar";
+import HomeHero from "@/components/HomeHero";
 
 export default function Home() {
   return (
     <>
-      <Header />
+      <NavBar />
+      <HomeHero />
       <main className="min-h-screen bg-black text-white overflow-x-hidden">
         <section className="relative bg-black text-white py-32 px-6 overflow-hidden">
           {/* Background glow */}

@@ -3,8 +3,8 @@
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import dynamic from "next/dynamic";
+import NavBar from "@/components/navigation/NavBar";
 import { Turnstile } from "@marsidev/react-turnstile";
 import { imageUrl, imageProps } from "@/lib/imageUrl";
 import { resizeImage } from "@/lib/resizeImage";
@@ -100,13 +100,11 @@ export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [role, setRole] = useState<string>("user");
-  const [profileDisplayName, setProfileDisplayName] = useState("");
   const [notifNewPhoto, setNotifNewPhoto] = useState(false);
   const [savingNotif, setSavingNotif] = useState(false);
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [loadingPhotos, setLoadingPhotos] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
   const [form, setForm] = useState<FormState>(defaultForm);
   const [submitStatus, setSubmitStatus] = useState<
     "idle" | "loading" | "success" | "error"
@@ -122,7 +120,7 @@ export default function DashboardPage() {
       loadPhotos(data.user.id);
       supabase
         .from("profiles")
-        .select("role, display_name, notif_new_photo")
+        .select("role, notif_new_photo")
         .eq("id", data.user.id)
         .single()
         .then(({ data: profile, error }) => {
@@ -134,7 +132,6 @@ export default function DashboardPage() {
           if (profile) {
             console.log("[dashboard] role chargé:", profile.role);
             setRole(profile.role ?? "user");
-            setProfileDisplayName(profile.display_name ?? "");
             setNotifNewPhoto(profile.notif_new_photo ?? false);
           }
         });
@@ -266,94 +263,12 @@ export default function DashboardPage() {
     setSavingNotif(false);
   }
 
-  async function handleLogout() {
-    await supabase.auth.signOut();
-    router.push("/login");
-    router.refresh();
-  }
-
-  const userName =
-    profileDisplayName ||
-    (user?.user_metadata?.name as string | undefined) ||
-    user?.email ||
-    "";
-
   return (
-    <div className="min-h-screen bg-black text-white flex">
-      {/* Sidebar — desktop */}
-      <aside className="hidden md:flex w-64 shrink-0 flex-col border-r border-white/10 sticky top-0 h-screen overflow-y-auto py-8 px-4">
-        <div className="mb-10">
-          <p className="text-cyan-300 uppercase tracking-[0.4em] text-xs mb-1">
-            Mon espace
-          </p>
-          <p className="text-white/30 uppercase tracking-[0.15em] text-xs">
-            Plombières en Images
-          </p>
-        </div>
-
-        {userName && (
-          <p className="px-4 mb-6 text-xs text-white/40 truncate">{userName}</p>
-        )}
-
-        <nav className="flex flex-col gap-1 flex-1">
-          <Link
-            href="/"
-            className="text-left px-4 py-3 rounded-xl text-sm uppercase tracking-[0.2em] text-white/50 hover:text-white/80 hover:bg-white/5 transition-all duration-200"
-          >
-            ← Retour au site
-          </Link>
-        </nav>
-
-        <button
-          onClick={handleLogout}
-          className="text-left px-4 py-3 text-xs uppercase tracking-[0.2em] text-white/25 hover:text-white/50 transition-colors"
-        >
-          Déconnexion
-        </button>
-      </aside>
-
-      {/* Header — mobile */}
-      <header className="md:hidden fixed top-0 inset-x-0 z-40 bg-black/90 backdrop-blur-md border-b border-white/10 flex items-center justify-between px-5 py-3">
-        <p className="text-cyan-300 uppercase tracking-[0.35em] text-xs">
-          Mon espace
-        </p>
-        <button
-          onClick={() => setMobileOpen(!mobileOpen)}
-          className="text-white/50 hover:text-white text-xl leading-none"
-          aria-label="Menu"
-        >
-          {mobileOpen ? "✕" : "☰"}
-        </button>
-      </header>
-
-      {/* Overlay — mobile */}
-      {mobileOpen && (
-        <div className="md:hidden fixed inset-0 z-30 bg-black pt-14 px-5 flex flex-col">
-          {userName && (
-            <p className="pt-6 pb-2 text-xs text-white/40 truncate">
-              {userName}
-            </p>
-          )}
-          <nav className="flex flex-col gap-1 flex-1 pt-2">
-            <Link
-              href="/"
-              onClick={() => setMobileOpen(false)}
-              className="px-4 py-4 rounded-xl text-sm uppercase tracking-[0.2em] text-white/50"
-            >
-              ← Retour au site
-            </Link>
-          </nav>
-          <button
-            onClick={handleLogout}
-            className="py-5 text-xs uppercase tracking-[0.2em] text-white/25 hover:text-white/50 transition-colors"
-          >
-            Déconnexion
-          </button>
-        </div>
-      )}
+    <div className="min-h-screen bg-black text-white">
+      <NavBar />
 
       {/* Main content */}
-      <main className="flex-1 overflow-y-auto px-5 py-8 md:px-10 pt-20 md:pt-8">
+      <main className="px-5 pt-28 pb-8 md:px-10">
         <div className="max-w-3xl mx-auto">
           {/* Title */}
           <div className="mb-12">
@@ -645,3 +560,4 @@ export default function DashboardPage() {
     </div>
   );
 }
+

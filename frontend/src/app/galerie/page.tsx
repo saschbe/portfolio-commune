@@ -16,6 +16,7 @@ import type { TurnstileInstance } from "@marsidev/react-turnstile";
 import { supabase } from "@/lib/supabase";
 import { imageUrl } from "@/lib/imageUrl";
 import type { User } from "@supabase/supabase-js";
+import NavBar from "@/components/navigation/NavBar";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -63,25 +64,6 @@ const ASPECTS = [
 ];
 
 // ── Icônes ────────────────────────────────────────────────────────────────────
-
-function UserIcon() {
-  return (
-    <svg
-      width="22"
-      height="22"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <circle cx="12" cy="8" r="4" />
-      <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
-    </svg>
-  );
-}
 
 function FilterIcon() {
   return (
@@ -136,18 +118,13 @@ function GalerieContent() {
 
   // Auth
   const [user, setUser] = useState<User | null>(null);
-  const [isPrivileged, setIsPrivileged] = useState(false);
-  const [profileDisplayName, setProfileDisplayName] = useState("");
-  const [userDropdown, setUserDropdown] = useState(false);
 
   // Données
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Header height (measured dynamically via ResizeObserver)
-  const headerRef = useRef<HTMLElement>(null);
-  const [headerH, setHeaderH] = useState(64);
+  const [headerH, setHeaderH] = useState(80);
 
   // Panneau filtres
   // Ouvert par défaut sur desktop (lg+), fermé sur mobile/tablet
@@ -159,11 +136,12 @@ function GalerieContent() {
   }, []);
 
   useEffect(() => {
-    if (!headerRef.current) return;
+    const header = document.querySelector("header");
+    if (!header) return;
     const ro = new ResizeObserver(([entry]) => {
       setHeaderH(entry.contentRect.height);
     });
-    ro.observe(headerRef.current);
+    ro.observe(header);
     return () => ro.disconnect();
   }, []);
   const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([]);
@@ -202,44 +180,11 @@ function GalerieContent() {
   // ── Auth ────────────────────────────────────────────────────────────────────
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setUser(data.user);
-      if (data.user) fetchRole(data.user.id);
+    supabase.auth.getUser().then(({ data }) => setUser(data.user));
+    const { data: listener } = supabase.auth.onAuthStateChange((_e, session) => {
+      setUser(session?.user ?? null);
     });
-    const { data: listener } = supabase.auth.onAuthStateChange(
-      (_e, session) => {
-        setUser(session?.user ?? null);
-        if (session?.user) fetchRole(session.user.id);
-        else setIsPrivileged(false);
-      },
-    );
     return () => listener.subscription.unsubscribe();
-  }, []);
-
-  async function fetchRole(userId: string) {
-    const { data } = await supabase
-      .from("profiles")
-      .select("role, display_name")
-      .eq("id", userId)
-      .single();
-    setIsPrivileged(["admin", "moderator"].includes(data?.role ?? ""));
-    setProfileDisplayName(data?.display_name ?? "");
-  }
-
-  async function handleLogout() {
-    await supabase.auth.signOut();
-    setUserDropdown(false);
-    router.push("/");
-  }
-
-  // Fermer user dropdown si clic extérieur (fonctionne pour desktop ET mobile)
-  useEffect(() => {
-    function onDown(e: MouseEvent) {
-      if (!(e.target as HTMLElement).closest("[data-user-dropdown]"))
-        setUserDropdown(false);
-    }
-    document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
   }, []);
 
   // ── Données ─────────────────────────────────────────────────────────────────
@@ -576,199 +521,49 @@ function GalerieContent() {
     [photosByDecade],
   );
 
-  const displayName =
-    profileDisplayName ||
-    (user?.user_metadata?.name as string | undefined) ||
-    user?.email?.split("@")[0] ||
-    "";
-
-  const spaceHref = isPrivileged ? "/admin" : "/dashboard";
-  const spaceLabel = isPrivileged ? "Administration" : "Mon espace";
-
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
     <div className="min-h-screen bg-black text-white">
-      {/* ── Header ───────────────────────────────────────────────────────── */}
-      <header ref={headerRef} className="fixed top-0 left-0 w-full z-50 backdrop-blur-xl bg-black/50 border-b border-white/10">
-        <div className="max-w-7xl mx-auto px-6 py-5 flex items-center justify-between gap-10">
-          {/* Logo */}
-          <Link href="/" className="shrink-0">
-            <Image
-              src="/images/logo-white.png"
-              alt="Plombières en Images"
-              width={0}
-              height={0}
-              loading="eager"
-              sizes="100vw"
-              className="w-32.5 md:w-47.5 lg:w-70 xl:w-[320px] h-auto drop-shadow-[0_0_12px_rgba(255,255,255,0.35)]"
-            />
-          </Link>
+      <NavBar />
 
-          {/* Nav desktop */}
-          <nav className="hidden md:flex items-center gap-10 ml-10 text-sm uppercase tracking-[0.2em] text-white">
-            <Link
-              href="/"
-              className="hover:text-cyan-300 transition-all duration-300"
-            >
-              Accueil
-            </Link>
-
-            {/* Compteur de photos */}
-            {!loading && (
-              <span className="tabular-nums tracking-[0.2em] text-sm uppercase">
-                {totalActiveFilters > 0 ? (
-                  <span>
-                    <span className="text-cyan-300 font-medium">
-                      {filteredPhotos.length}
-                    </span>
-                    <span className="text-white/30">
-                      {" "}
-                      / {photos.length} photos
-                    </span>
-                  </span>
-                ) : (
-                  <span className="text-white/50">{photos.length} photos</span>
-                )}
-              </span>
-            )}
-
-            {/* Bouton Filtres dans la nav */}
-            <button
-              onClick={() => setPanelOpen(true)}
-              className={`flex items-center gap-2.5 px-6 py-2.5 rounded-full border text-sm uppercase tracking-[0.25em] transition-all duration-300 ${
-                totalActiveFilters > 0
-                  ? "bg-cyan-300/10 border-cyan-300/40 text-cyan-300 hover:bg-cyan-300/20 hover:border-cyan-300/70"
-                  : "border-white/20 bg-white/5 text-white hover:bg-white/10 hover:border-white/40"
-              }`}
-            >
-              <FilterIcon />
-              Filtres
-              {totalActiveFilters > 0 && (
-                <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-cyan-300 text-black text-[10px] font-bold">
-                  {totalActiveFilters}
-                </span>
-              )}
-            </button>
-
-            {/* Icône utilisateur */}
-            {user ? (
-              <div className="relative" data-user-dropdown="">
-                <button
-                  onClick={() => setUserDropdown(!userDropdown)}
-                  aria-label="Mon compte"
-                  className={`transition-colors duration-300 ${userDropdown ? "text-cyan-300" : "text-white/70 hover:text-cyan-300"}`}
-                >
-                  <UserIcon />
-                </button>
-                {userDropdown && (
-                  <div className="absolute right-0 top-full mt-3 w-48 bg-zinc-950/95 backdrop-blur-md border border-white/10 rounded-2xl overflow-hidden shadow-[0_8px_40px_rgba(0,0,0,0.6)]">
-                    <div className="px-4 py-3 border-b border-white/5">
-                      <p className="text-xs text-white/60 truncate">
-                        {displayName}
-                      </p>
-                      <p className="text-[10px] text-white/30 truncate mt-0.5">
-                        {user.email}
-                      </p>
-                    </div>
-                    <Link
-                      href={spaceHref}
-                      onClick={() => setUserDropdown(false)}
-                      className="flex items-center px-4 py-3 text-xs uppercase tracking-[0.2em] text-white/70 hover:text-cyan-300 hover:bg-white/5 transition-all"
-                    >
-                      {spaceLabel}
-                    </Link>
-                    <button
-                      onClick={handleLogout}
-                      className="w-full text-left px-4 py-3 text-xs uppercase tracking-[0.2em] text-white/40 hover:text-red-400 hover:bg-white/5 transition-all border-t border-white/5"
-                    >
-                      Se déconnecter
-                    </button>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <Link
-                href="/login"
-                aria-label="Se connecter"
-                className="text-white/70 hover:text-cyan-300 transition-all duration-300"
-              >
-                <UserIcon />
-              </Link>
-            )}
-          </nav>
-
-          {/* Mobile : accueil + filtres + user */}
-          <div className="md:hidden flex items-center gap-3">
-            <Link
-              href="/"
-              className="text-xs uppercase tracking-[0.2em] text-white/70 hover:text-cyan-300 transition-all duration-300"
-            >
-              Accueil
-            </Link>
-            <button
-              onClick={() => setPanelOpen(true)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs uppercase tracking-[0.25em] transition-all duration-300 ${
-                totalActiveFilters > 0
-                  ? "bg-cyan-300/10 border-cyan-300/40 text-cyan-300 hover:bg-cyan-300/20 hover:border-cyan-300/70"
-                  : "border-white/20 bg-white/5 text-white/70 hover:bg-white/10 hover:border-white/40"
-              }`}
-            >
-              <FilterIcon />
-              Filtres
-              {totalActiveFilters > 0 && (
-                <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-cyan-300 text-black text-[9px] font-bold">
-                  {totalActiveFilters}
-                </span>
-              )}
-            </button>
-            {user ? (
-              <div className="relative" data-user-dropdown="">
-                <button
-                  onClick={() => setUserDropdown(!userDropdown)}
-                  aria-label="Mon compte"
-                  className={`transition-colors duration-300 ${userDropdown ? "text-cyan-300" : "text-white/60 hover:text-cyan-300"}`}
-                >
-                  <UserIcon />
-                </button>
-                {userDropdown && (
-                  <div className="absolute right-0 top-full mt-3 w-48 bg-zinc-950/95 backdrop-blur-md border border-white/10 rounded-2xl overflow-hidden shadow-[0_8px_40px_rgba(0,0,0,0.6)]">
-                    <Link
-                      href={spaceHref}
-                      onClick={() => setUserDropdown(false)}
-                      className="flex items-center px-4 py-3 text-xs uppercase tracking-[0.2em] text-white/70 hover:text-cyan-300 hover:bg-white/5 transition-all"
-                    >
-                      {spaceLabel}
-                    </Link>
-                    <button
-                      onClick={handleLogout}
-                      className="w-full text-left px-4 py-3 text-xs uppercase tracking-[0.2em] text-white/40 hover:text-red-400 hover:bg-white/5 transition-all border-t border-white/5"
-                    >
-                      Se déconnecter
-                    </button>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <Link
-                href="/login"
-                aria-label="Se connecter"
-                className="text-white/60 hover:text-cyan-300 transition-all duration-300"
-              >
-                <UserIcon />
-              </Link>
-            )}
-          </div>
-        </div>
-      </header>
+      {/* Bouton Filtres flottant */}
+      <button
+        onClick={() => setPanelOpen(true)}
+        className={`fixed top-24 left-6 z-30 flex items-center gap-2 px-4 py-2 rounded-full border text-[10px] uppercase tracking-[0.25em] backdrop-blur-md transition-all duration-300 ${
+          totalActiveFilters > 0
+            ? "bg-cyan-300/10 border-cyan-300/40 text-cyan-300 hover:bg-cyan-300/20 hover:border-cyan-300/70"
+            : "border-white/20 bg-white/5 text-white/70 hover:bg-white/10 hover:border-white/40"
+        }`}
+      >
+        <FilterIcon />
+        Filtres
+        {totalActiveFilters > 0 && (
+          <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-cyan-300 text-black text-[9px] font-bold">
+            {totalActiveFilters}
+          </span>
+        )}
+      </button>
 
       {/* ── Contenu ──────────────────────────────────────────────────────── */}
-      <div className="max-w-7xl mx-auto px-6 py-12">
+      <div className="max-w-7xl mx-auto px-6 pt-36 pb-12">
         {/* Titre */}
         <div className="mb-10">
           <h1 className="text-3xl md:text-5xl font-light uppercase tracking-[0.15em] leading-[1.2]">
             Galerie
           </h1>
+          {!loading && (
+            <p className="mt-2 text-sm uppercase tracking-[0.2em] tabular-nums">
+              {totalActiveFilters > 0 ? (
+                <span>
+                  <span className="text-cyan-300 font-medium">{filteredPhotos.length}</span>
+                  <span className="text-white/30"> / {photos.length} photos</span>
+                </span>
+              ) : (
+                <span className="text-white/50">{photos.length} photos</span>
+              )}
+            </p>
+          )}
         </div>
 
         {/* Barre filtres actifs */}

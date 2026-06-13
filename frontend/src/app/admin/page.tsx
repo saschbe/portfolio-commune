@@ -195,6 +195,12 @@ export default function AdminPage() {
           </div>
         )}
 
+        <Link
+          href="/compte"
+          className="text-left px-4 py-3 text-xs uppercase tracking-[0.2em] text-white/25 hover:text-white/50 transition-colors"
+        >
+          Mon compte
+        </Link>
         <button
           onClick={handleLogout}
           className="text-left px-4 py-3 text-xs uppercase tracking-[0.2em] text-white/25 hover:text-white/50 transition-colors"
@@ -254,6 +260,13 @@ export default function AdminPage() {
               </div>
             </div>
           )}
+          <Link
+            href="/compte"
+            onClick={() => setMobileOpen(false)}
+            className="py-5 text-xs uppercase tracking-[0.2em] text-white/25 hover:text-white/50 transition-colors"
+          >
+            Mon compte
+          </Link>
           <button
             onClick={handleLogout}
             className="py-5 text-xs uppercase tracking-[0.2em] text-white/25 hover:text-white/50 transition-colors"

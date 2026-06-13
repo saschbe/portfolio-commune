@@ -1,30 +1,5 @@
-"use client";
-
-import { useState, useEffect, useRef } from "react";
-import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
-import type { User } from "@supabase/supabase-js";
-
-function UserIcon() {
-  return (
-    <svg
-      width="22"
-      height="22"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <circle cx="12" cy="8" r="4" />
-      <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
-    </svg>
-  );
-}
+import NavBar from "@/components/navigation/NavBar";
 
 const SECTIONS = [
   {
@@ -70,183 +45,9 @@ const SECTIONS = [
 ];
 
 export default function MentionsLegalesPage() {
-  const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
-  const [isPrivileged, setIsPrivileged] = useState(false);
-  const [profileDisplayName, setProfileDisplayName] = useState("");
-  const [userDropdown, setUserDropdown] = useState(false);
-  const userDropdownRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setUser(data.user);
-      if (data.user) fetchRole(data.user.id);
-    });
-    const { data: listener } = supabase.auth.onAuthStateChange(
-      (_e, session) => {
-        setUser(session?.user ?? null);
-        if (session?.user) fetchRole(session.user.id);
-        else setIsPrivileged(false);
-      },
-    );
-    return () => listener.subscription.unsubscribe();
-  }, []);
-
-  async function fetchRole(userId: string) {
-    const { data } = await supabase
-      .from("profiles")
-      .select("role, display_name")
-      .eq("id", userId)
-      .single();
-    setIsPrivileged(["admin", "moderator"].includes(data?.role ?? ""));
-    setProfileDisplayName(data?.display_name ?? "");
-  }
-
-  async function handleLogout() {
-    await supabase.auth.signOut();
-    setUserDropdown(false);
-    router.refresh();
-  }
-
-  useEffect(() => {
-    function onDown(e: MouseEvent) {
-      if (
-        userDropdownRef.current &&
-        !userDropdownRef.current.contains(e.target as Node)
-      )
-        setUserDropdown(false);
-    }
-    document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
-  }, []);
-
-  const displayName =
-    profileDisplayName ||
-    (user?.user_metadata?.name as string | undefined) ||
-    user?.email?.split("@")[0] ||
-    "";
-  const spaceHref = isPrivileged ? "/admin" : "/dashboard";
-  const spaceLabel = isPrivileged ? "Administration" : "Mon espace";
-
   return (
     <div className="min-h-screen bg-black text-white">
-      {/* ── Header ───────────────────────────────────────────────────────── */}
-      <header className="fixed top-0 left-0 w-full z-50 backdrop-blur-xl bg-black/50 border-b border-white/10">
-        <div className="max-w-7xl mx-auto px-6 py-5 flex items-center justify-between gap-10">
-          <Link href="/" className="shrink-0">
-            <Image
-              src="/images/logo-white.png"
-              alt="Plombières en Images"
-              width={0}
-              height={0}
-              loading="eager"
-              sizes="100vw"
-              className="w-[130px] md:w-[190px] lg:w-[280px] xl:w-[320px] h-auto drop-shadow-[0_0_12px_rgba(255,255,255,0.35)]"
-            />
-          </Link>
-
-          {/* Nav desktop */}
-          <nav className="hidden md:flex items-center gap-10 ml-10 text-sm uppercase tracking-[0.2em] text-white">
-            <Link
-              href="/"
-              className="hover:text-cyan-300 transition-all duration-300"
-            >
-              Accueil
-            </Link>
-            <Link
-              href="/galerie"
-              className="text-white/50 hover:text-cyan-300 transition-all duration-300"
-            >
-              Galerie
-            </Link>
-
-            {user ? (
-              <div className="relative" ref={userDropdownRef}>
-                <button
-                  onClick={() => setUserDropdown(!userDropdown)}
-                  aria-label="Mon compte"
-                  className={`transition-colors duration-300 ${userDropdown ? "text-cyan-300" : "text-white/70 hover:text-cyan-300"}`}
-                >
-                  <UserIcon />
-                </button>
-                {userDropdown && (
-                  <div className="absolute right-0 top-full mt-3 w-48 bg-zinc-950/95 backdrop-blur-md border border-white/10 rounded-2xl overflow-hidden shadow-[0_8px_40px_rgba(0,0,0,0.6)]">
-                    <div className="px-4 py-3 border-b border-white/5">
-                      <p className="text-xs text-white/60 truncate">
-                        {displayName}
-                      </p>
-                      <p className="text-[10px] text-white/30 truncate mt-0.5">
-                        {user.email}
-                      </p>
-                    </div>
-                    <Link
-                      href={spaceHref}
-                      onClick={() => setUserDropdown(false)}
-                      className="flex items-center px-4 py-3 text-xs uppercase tracking-[0.2em] text-white/70 hover:text-cyan-300 hover:bg-white/5 transition-all"
-                    >
-                      {spaceLabel}
-                    </Link>
-                    <button
-                      onClick={handleLogout}
-                      className="w-full text-left px-4 py-3 text-xs uppercase tracking-[0.2em] text-white/40 hover:text-red-400 hover:bg-white/5 transition-all border-t border-white/5"
-                    >
-                      Se déconnecter
-                    </button>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <Link
-                href="/login"
-                aria-label="Se connecter"
-                className="text-white/70 hover:text-cyan-300 transition-all duration-300"
-              >
-                <UserIcon />
-              </Link>
-            )}
-          </nav>
-
-          {/* Mobile */}
-          <div className="md:hidden flex items-center gap-4">
-            {user ? (
-              <div className="relative" ref={userDropdownRef}>
-                <button
-                  onClick={() => setUserDropdown(!userDropdown)}
-                  aria-label="Mon compte"
-                  className={`transition-colors duration-300 ${userDropdown ? "text-cyan-300" : "text-white/60 hover:text-cyan-300"}`}
-                >
-                  <UserIcon />
-                </button>
-                {userDropdown && (
-                  <div className="absolute right-0 top-full mt-3 w-48 bg-zinc-950/95 backdrop-blur-md border border-white/10 rounded-2xl overflow-hidden shadow-[0_8px_40px_rgba(0,0,0,0.6)]">
-                    <Link
-                      href={spaceHref}
-                      onClick={() => setUserDropdown(false)}
-                      className="flex items-center px-4 py-3 text-xs uppercase tracking-[0.2em] text-white/70 hover:text-cyan-300 hover:bg-white/5 transition-all"
-                    >
-                      {spaceLabel}
-                    </Link>
-                    <button
-                      onClick={handleLogout}
-                      className="w-full text-left px-4 py-3 text-xs uppercase tracking-[0.2em] text-white/40 hover:text-red-400 hover:bg-white/5 transition-all border-t border-white/5"
-                    >
-                      Se déconnecter
-                    </button>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <Link
-                href="/login"
-                aria-label="Se connecter"
-                className="text-white/60 hover:text-cyan-300 transition-all duration-300"
-              >
-                <UserIcon />
-              </Link>
-            )}
-          </div>
-        </div>
-      </header>
+      <NavBar />
 
       {/* ── Contenu ──────────────────────────────────────────────────────── */}
       <div className="max-w-3xl mx-auto px-6 pt-36 pb-24">
@@ -293,7 +94,7 @@ export default function MentionsLegalesPage() {
             </div>
           ))}
 
-          {/* Section 04 — RGPD & contact */}
+          {/* Section RGPD & contact */}
           <div className="bg-white/2 border border-cyan-300/20 backdrop-blur-md rounded-3xl p-8 md:p-10">
             <div className="flex items-start gap-6 mb-6">
               <span className="text-cyan-300 text-[11px] uppercase tracking-[0.35em] tabular-nums shrink-0 mt-1">

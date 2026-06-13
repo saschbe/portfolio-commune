@@ -11,7 +11,8 @@ export type LogType =
   | "signalement_traite"
   | "temoignage_masque"
   | "temoignage_restaure"
-  | "temoignage_supprime";
+  | "temoignage_supprime"
+  | "user_modifie";
 
 export interface LogPayload {
   type: LogType;
