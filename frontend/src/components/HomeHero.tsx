@@ -1,4 +1,5 @@
 import Image from "next/image";
+import InstallAppButton from "@/components/InstallAppButton";
 
 export default function HomeHero() {
   return (
@@ -37,6 +38,7 @@ export default function HomeHero() {
             >
               Explorer les archives
             </a>
+            <InstallAppButton />
           </div>
         </div>
       </div>
