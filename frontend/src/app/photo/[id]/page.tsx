@@ -132,6 +132,7 @@ function PhotoContent() {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const preloadCache = useRef<Map<string, Photo>>(new Map());
+  const imagePreloadCache = useRef<Set<string>>(new Set());
 
   // Slide animation direction (null = enter animation, 'left'/'right' = exit)
   const [slideDir, setSlideDir] = useState<"left" | "right" | null>(null);
@@ -211,6 +212,7 @@ function PhotoContent() {
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
   const swipeHappened = useRef(false);
+  const lightboxSwipeStart = useRef({ x: 0, y: 0, pinch: false });
 
   const resetZoom = useCallback(() => {
     setZoomScale(1);
@@ -303,7 +305,7 @@ function PhotoContent() {
     resetZoom,
   ]);
 
-  // ── Swipe in zoom lightbox (unchanged) ───────────────────────────────────
+  // ── Swipe in zoom lightbox ───────────────────────────────────────────────
 
   useEffect(() => {
     if (!zoomed) return;
@@ -311,26 +313,33 @@ function PhotoContent() {
     if (!el) return;
     if (zoomScale > 1) return;
 
-    let startX = 0;
-    let pinch = false;
-
     function onStart(e: TouchEvent) {
-      pinch = e.touches.length > 1;
-      if (!pinch) startX = e.touches[0].clientX;
+      lightboxSwipeStart.current = {
+        x: e.touches[0]?.clientX ?? 0,
+        y: e.touches[0]?.clientY ?? 0,
+        pinch: e.touches.length > 1,
+      };
     }
+
     function onMove(e: TouchEvent) {
-      if (e.touches.length > 1) pinch = true;
-    }
-    function onEnd(e: TouchEvent) {
-      if (pinch) return;
-      const dx = e.changedTouches[0].clientX - startX;
-      if (dx < -50 && nextId) {
-        closeZoom();
-        router.push(`/photo/${nextId}${contextSearch}`);
+      if (e.touches.length > 1) {
+        lightboxSwipeStart.current.pinch = true;
       }
-      if (dx > 50 && prevId) {
-        closeZoom();
-        router.push(`/photo/${prevId}${contextSearch}`);
+    }
+
+    function onEnd(e: TouchEvent) {
+      if (lightboxSwipeStart.current.pinch) return;
+      const dx = e.changedTouches[0].clientX - lightboxSwipeStart.current.x;
+      const dy = e.changedTouches[0].clientY - lightboxSwipeStart.current.y;
+      if (Math.abs(dx) < SWIPE_MIN_X || Math.abs(dy) >= SWIPE_MAX_Y) return;
+
+      if (dx < 0 && nextId) {
+        resetZoom();
+        navigateTo(nextId, "left");
+      }
+      if (dx > 0 && prevId) {
+        resetZoom();
+        navigateTo(prevId, "right");
       }
     }
 
@@ -342,7 +351,7 @@ function PhotoContent() {
       el.removeEventListener("touchmove", onMove);
       el.removeEventListener("touchend", onEnd);
     };
-  }, [zoomed, zoomScale, nextId, prevId, router, contextSearch, closeZoom]);
+  }, [zoomed, zoomScale, nextId, prevId, navigateTo, resetZoom]);
 
   // ── Load adjacentIds once ─────────────────────────────────────────────────
 
@@ -390,26 +399,47 @@ function PhotoContent() {
       });
   }, [currentId]);
 
-  // ── Preload adjacent photos ───────────────────────────────────────────────
+  // ── Preload nearby photos ─────────────────────────────────────────────────
 
   useEffect(() => {
-    if (adjacentIds.length === 0) return;
-    const idx = adjacentIds.indexOf(currentId);
-    [adjacentIds[idx - 1], adjacentIds[idx + 1]]
-      .filter(
-        (pid): pid is string => Boolean(pid) && !preloadCache.current.has(pid),
-      )
-      .forEach((pid) => {
-        supabase
-          .from("photos")
-          .select("*")
-          .eq("id", pid)
-          .single()
-          .then(({ data }) => {
-            if (data) preloadCache.current.set(pid, data as Photo);
-          });
+    if (currentIndex < 0) return;
+
+    const nearbyIds = [
+      navIds[currentIndex - 2],
+      prevId,
+      nextId,
+      navIds[currentIndex + 2],
+    ].filter((pid): pid is string => Boolean(pid) && pid !== currentId);
+
+    const preloadImage = (src: string | null | undefined) => {
+      const url = imageUrl(src, "full");
+      if (!url || imagePreloadCache.current.has(url)) return;
+      imagePreloadCache.current.add(url);
+
+      const img = new window.Image();
+      img.decoding = "async";
+      img.src = url;
+    };
+
+    nearbyIds.forEach((pid) => {
+      preloadImage(preloadCache.current.get(pid)?.src);
+    });
+
+    const missingIds = nearbyIds.filter((pid) => !preloadCache.current.has(pid));
+    if (missingIds.length === 0) return;
+
+    supabase
+      .from("photos")
+      .select("*")
+      .in("id", missingIds)
+      .then(({ data }) => {
+        (data ?? []).forEach((item) => {
+          const loadedPhoto = item as Photo;
+          preloadCache.current.set(loadedPhoto.id, loadedPhoto);
+          preloadImage(loadedPhoto.src);
+        });
       });
-  }, [currentId, adjacentIds]);
+  }, [currentId, currentIndex, navIds, nextId, prevId]);
 
   // ── Auth ──────────────────────────────────────────────────────────────────
 
@@ -1005,22 +1035,24 @@ function PhotoContent() {
               e.currentTarget.releasePointerCapture(e.pointerId);
             }}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={imageUrl(photo.src, "full")}
-              alt={photo.title}
-              draggable={false}
-              className="photo-lightbox-image select-none transition-transform duration-150 ease-out"
-              style={{
-                display: "block",
-                maxWidth: "min(2400px, 95vw)",
-                maxHeight: "calc(100dvh - 8rem)",
-                objectFit: "contain",
-                cursor: zoomScale > 1 ? "grab" : "default",
-                transform: `translate3d(${zoomPan.x}px, ${zoomPan.y}px, 0) scale(${zoomScale})`,
-                touchAction: zoomScale > 1 ? "none" : "pan-y",
-              }}
-            />
+            <div className={animClass}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={imageUrl(photo.src, "full")}
+                alt={photo.title}
+                draggable={false}
+                className="photo-lightbox-image select-none transition-transform duration-150 ease-out"
+                style={{
+                  display: "block",
+                  maxWidth: "min(2400px, 95vw)",
+                  maxHeight: "calc(100dvh - 8rem)",
+                  objectFit: "contain",
+                  cursor: zoomScale > 1 ? "grab" : "default",
+                  transform: `translate3d(${zoomPan.x}px, ${zoomPan.y}px, 0) scale(${zoomScale})`,
+                  touchAction: zoomScale > 1 ? "none" : "pan-y",
+                }}
+              />
+            </div>
           </div>
           {/* Hint clavier */}
           <p className="photo-lightbox-hint absolute bottom-4 left-1/2 -translate-x-1/2 text-white/20 text-[10px] uppercase tracking-[0.25em]">
