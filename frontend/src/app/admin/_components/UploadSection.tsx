@@ -6,6 +6,8 @@ import { supabase } from "@/lib/supabase";
 import { VILLAGES_HAMEAUX, VILLAGES, VILLAGE_CENTERS } from "@/lib/villages";
 import { logActivite } from "@/lib/logActivite";
 import { resizeImage } from "@/lib/resizeImage";
+import { PHOTO_TYPES, formatPhotoTypes, parsePhotoTypes } from "@/lib/photoTypes";
+import PhotoTypeSelector from "@/components/PhotoTypeSelector";
 import exifr from "exifr";
 
 const LocationPicker = dynamic(() => import("@/components/LocationPicker"), {
@@ -46,7 +48,6 @@ type ExistingPhotoPoint = {
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const TYPES = ["Ancienne", "Moderne", "Aérienne", "Événement"] as const;
 const ACCEPTED = ["image/jpeg", "image/png", "image/webp"];
 const MAX_FILES = 20;
 const MAX_SIZE = 10 * 1024 * 1024;
@@ -232,18 +233,16 @@ function UploadCard({
           )}
         </div>
 
-        <select
-          value={entry.type}
-          onChange={(e) => onUpdate(entry.id, { type: e.target.value })}
-          className={`${FIELD_CLASS} [&>option]:bg-zinc-900 cursor-pointer`}
-        >
-          <option value="">◦ Type</option>
-          {TYPES.map((t) => (
-            <option key={t} value={t}>
-              {t}
-            </option>
-          ))}
-        </select>
+        <div className="space-y-2">
+          <p className="text-[10px] uppercase tracking-[0.2em] text-white/35">
+            Types
+          </p>
+          <PhotoTypeSelector
+            value={entry.type}
+            onChange={(type) => onUpdate(entry.id, { type })}
+            compact
+          />
+        </div>
 
         <div className="relative">
           <textarea
@@ -703,16 +702,20 @@ export default function UploadSection() {
               const v = e.target.value;
               if (!v) return;
               setEntries((prev) =>
-                prev.map((entry) =>
-                  entry.type ? entry : { ...entry, type: v },
-                ),
+                prev.map((entry) => ({
+                  ...entry,
+                  type: formatPhotoTypes([
+                    ...parsePhotoTypes(entry.type),
+                    v,
+                  ]),
+                })),
               );
               setApplyType("");
             }}
             className={TOOLBAR_SELECT_CLASS}
           >
-            <option value="">Type ▾</option>
-            {TYPES.map((t) => (
+            <option value="">Ajouter type ▾</option>
+            {PHOTO_TYPES.map((t) => (
               <option key={t} value={t}>
                 {t}
               </option>

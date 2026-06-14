@@ -17,6 +17,7 @@ import { supabase } from "@/lib/supabase";
 import { imageUrl } from "@/lib/imageUrl";
 import type { User } from "@supabase/supabase-js";
 import NavBar from "@/components/navigation/NavBar";
+import { PHOTO_TYPES, photoHasType } from "@/lib/photoTypes";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -508,6 +509,42 @@ function GalerieContent() {
 
   // Restaurée : filtre actif seulement si un seul des deux boutons est activé
   const restoreeFiltered = filterRestaureeOui !== filterRestaureeNon;
+  const photoYears = useMemo(
+    () =>
+      photos
+        .map((photo) => parseInt(photo.year, 10))
+        .filter((year) => Number.isFinite(year)),
+    [photos],
+  );
+  const minYear = photoYears.length > 0 ? Math.min(...photoYears) : 1800;
+  const maxYear =
+    photoYears.length > 0 ? Math.max(...photoYears) : new Date().getFullYear();
+  const selectedYearFrom = yearFrom ? parseInt(yearFrom, 10) : minYear;
+  const selectedYearTo = yearTo ? parseInt(yearTo, 10) : maxYear;
+  const yearFromPercent =
+    maxYear === minYear
+      ? 0
+      : ((selectedYearFrom - minYear) / (maxYear - minYear)) * 100;
+  const yearToPercent =
+    maxYear === minYear
+      ? 100
+      : ((selectedYearTo - minYear) / (maxYear - minYear)) * 100;
+
+  function setYearRangeEdge(edge: "from" | "to", value: string) {
+    const year = parseInt(value, 10);
+    if (!Number.isFinite(year)) return;
+
+    if (edge === "from") {
+      const nextFrom = Math.min(year, selectedYearTo);
+      setYearFrom(nextFrom === minYear ? "" : String(nextFrom));
+      if (year > selectedYearTo) setYearTo(String(nextFrom));
+      return;
+    }
+
+    const nextTo = Math.max(year, selectedYearFrom);
+    setYearTo(nextTo === maxYear ? "" : String(nextTo));
+    if (year < selectedYearFrom) setYearFrom(String(nextTo));
+  }
 
   const filteredPhotos =
     activeFilters.length === 0 &&
@@ -524,19 +561,28 @@ function GalerieContent() {
           )
             return false;
           if (selectedHameau && photo.hameau !== selectedHameau) return false;
-          const passesFilters = activeFilters.every((f) => {
-            const val = (photo as unknown as Record<string, unknown>)[
-              f.colonne
-            ];
-            if (val === null || val === undefined) return false;
-            if (typeof val === "boolean") {
-              const v = f.value.toLowerCase();
-              return val
-                ? v === "oui" || v === "true"
-                : v === "non" || v === "false";
-            }
-            return String(val).toLowerCase() === f.value.toLowerCase();
-          });
+          const typeFilters = activeFilters.filter((f) => f.colonne === "type");
+          if (
+            typeFilters.length > 0 &&
+            !typeFilters.some((f) => photoHasType(photo.type, f.value))
+          )
+            return false;
+
+          const passesFilters = activeFilters
+            .filter((f) => f.colonne !== "type")
+            .every((f) => {
+              const val = (photo as unknown as Record<string, unknown>)[
+                f.colonne
+              ];
+              if (val === null || val === undefined) return false;
+              if (typeof val === "boolean") {
+                const v = f.value.toLowerCase();
+                return val
+                  ? v === "oui" || v === "true"
+                  : v === "non" || v === "false";
+              }
+              return String(val).toLowerCase() === f.value.toLowerCase();
+            });
           if (!passesFilters) return false;
           if (yearFrom || yearTo) {
             const y = parseInt(photo.year, 10);
@@ -589,6 +635,10 @@ function GalerieContent() {
   const galleryViewConfig =
     GALLERY_VIEWS.find((view) => view.value === galleryView) ??
     GALLERY_VIEWS[0];
+  const typeCategory = categories.find((cat) => cat.colonne === "type");
+  const otherCategories = categories.filter(
+    (cat) => !["village", "year", "restored", "type"].includes(cat.colonne),
+  );
 
   function resetFilters() {
     setActiveFilters([]);
@@ -992,16 +1042,16 @@ function GalerieContent() {
           top: "var(--site-header-height)",
           height: "calc(100vh - var(--site-header-height))",
         }}
-        className={`fixed left-0 overflow-hidden z-40 w-80 bg-zinc-950 border-r border-white/10 flex flex-col shadow-[4px_0_40px_rgba(0,0,0,0.6)] transition-transform duration-300 ease-out ${panelOpen ? "translate-x-0" : "-translate-x-full"}`}
+        className={`fixed left-0 overflow-hidden z-40 w-[min(22rem,calc(100vw-1.5rem))] bg-zinc-950/98 border-r border-white/10 flex flex-col shadow-[8px_0_32px_rgba(0,0,0,0.45)] transition-transform duration-300 ease-out ${panelOpen ? "translate-x-0" : "-translate-x-full"}`}
       >
         {/* En-tête panneau */}
-        <div className="flex items-center justify-between px-6 py-5 border-b border-white/10 shrink-0">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-white/10 shrink-0">
           <div>
-            <p className="text-cyan-300 uppercase tracking-[0.35em] text-xs mb-0.5">
+            <p className="text-cyan-300 uppercase tracking-[0.24em] text-[11px] mb-0.5">
               Filtres
             </p>
             {totalActiveFilters > 0 && (
-              <p className="text-white/30 text-[10px] uppercase tracking-[0.2em]">
+              <p className="text-white/35 text-[10px] uppercase tracking-[0.12em]">
                 {totalActiveFilters} actif{totalActiveFilters > 1 ? "s" : ""}
               </p>
             )}
@@ -1009,21 +1059,66 @@ function GalerieContent() {
           <button
             onClick={() => setPanelOpen(false)}
             aria-label="Fermer les filtres"
-            className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/15 text-white/60 text-[10px] uppercase tracking-[0.2em] hover:border-cyan-300/40 hover:text-cyan-300 hover:bg-white/5 transition-all"
+            className="grid size-8 place-items-center rounded-lg border border-white/10 text-white/50 hover:border-cyan-300/35 hover:text-cyan-300 hover:bg-white/5 transition-all"
           >
             <span className="text-base leading-none">✕</span>
-            Fermer
           </button>
         </div>
 
         {/* Catégories */}
-        <div className="flex-1 overflow-y-auto px-6 py-6 space-y-8">
+        <div className="flex-1 overflow-y-auto px-5 py-5 space-y-6">
+          {/* Annee */}
+          <div>
+            <div className="mb-2.5 flex items-center justify-between gap-3">
+              <label className="text-[10px] uppercase tracking-[0.22em] text-white/55">
+                Ann&eacute;e
+              </label>
+              <span className="text-[10px] uppercase tracking-[0.12em] text-cyan-200/80">
+                {selectedYearFrom} - {selectedYearTo}
+              </span>
+            </div>
+            <div className="rounded-lg border border-white/10 bg-white/[0.035] px-3.5 py-4">
+              <div className="relative h-7">
+                <div className="absolute left-0 right-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-white/10" />
+                <div
+                  className="absolute top-1/2 h-1 -translate-y-1/2 rounded-full bg-cyan-300/70"
+                  style={{
+                    left: `${yearFromPercent}%`,
+                    right: `${100 - yearToPercent}%`,
+                  }}
+                />
+                <input
+                  type="range"
+                  min={minYear}
+                  max={maxYear}
+                  value={selectedYearFrom}
+                  onChange={(e) => setYearRangeEdge("from", e.target.value)}
+                  aria-label="Annee de debut"
+                  className="year-range-input"
+                />
+                <input
+                  type="range"
+                  min={minYear}
+                  max={maxYear}
+                  value={selectedYearTo}
+                  onChange={(e) => setYearRangeEdge("to", e.target.value)}
+                  aria-label="Annee de fin"
+                  className="year-range-input"
+                />
+              </div>
+              <div className="mt-1 flex items-center justify-between text-[10px] text-white/30">
+                <span>{minYear}</span>
+                <span>{maxYear}</span>
+              </div>
+            </div>
+          </div>
+
           {/* Village */}
           <div>
-            <label className="block text-[10px] uppercase tracking-[0.3em] text-white/40 mb-3">
+            <label className="block text-[10px] uppercase tracking-[0.22em] text-white/45 mb-2.5">
               Village
             </label>
-            <div className="flex flex-wrap gap-2">
+            <div className="grid grid-cols-2 gap-2">
               {VILLAGES.map((v) => {
                 const active = selectedVillages.includes(v);
                 return (
@@ -1037,10 +1132,10 @@ function GalerieContent() {
                       );
                       setSelectedHameau(null);
                     }}
-                    className={`px-3 py-1.5 rounded-full border text-[11px] uppercase tracking-[0.2em] transition-all duration-200 ${
+                    className={`min-h-9 rounded-lg border px-3 py-2 text-left text-[11px] uppercase tracking-[0.08em] transition-all duration-200 ${
                       active
-                        ? "bg-cyan-300/15 border-cyan-300/50 text-cyan-300"
-                        : "bg-white/5 border-white/10 text-white/50 hover:border-white/25 hover:text-white/80"
+                        ? "bg-cyan-300/12 border-cyan-300/45 text-cyan-200 shadow-[inset_0_0_0_1px_rgba(103,232,249,0.08)]"
+                        : "bg-white/[0.035] border-white/10 text-white/55 hover:bg-white/[0.06] hover:border-white/20 hover:text-white/85"
                     }`}
                   >
                     {v}
@@ -1054,20 +1149,20 @@ function GalerieContent() {
           {selectedVillages.length === 1 &&
             VILLAGES_HAMEAUX[selectedVillages[0]]?.length > 0 && (
               <div className="animate-fadeIn">
-                <label className="block text-[10px] uppercase tracking-[0.3em] text-white/40 mb-3">
+                <label className="block text-[10px] uppercase tracking-[0.22em] text-white/45 mb-2.5">
                   Hameau · Lieu-dit
                 </label>
-                <div className="flex flex-wrap gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   {VILLAGES_HAMEAUX[selectedVillages[0]].map((h) => (
                     <button
                       key={h}
                       onClick={() =>
                         setSelectedHameau(selectedHameau === h ? null : h)
                       }
-                      className={`px-3 py-1.5 rounded-full border text-[11px] uppercase tracking-[0.2em] transition-all duration-200 ${
+                      className={`min-h-9 rounded-lg border px-3 py-2 text-left text-[11px] uppercase tracking-[0.08em] transition-all duration-200 ${
                         selectedHameau === h
-                          ? "bg-cyan-300/15 border-cyan-300/50 text-cyan-300"
-                          : "bg-white/5 border-white/10 text-white/50 hover:border-white/25 hover:text-white/80"
+                          ? "bg-cyan-300/12 border-cyan-300/45 text-cyan-200"
+                          : "bg-white/[0.035] border-white/10 text-white/55 hover:bg-white/[0.06] hover:border-white/20 hover:text-white/85"
                       }`}
                     >
                       {h}
@@ -1077,16 +1172,79 @@ function GalerieContent() {
               </div>
             )}
 
+          {/* Type */}
+          {typeCategory && (
+            <div>
+              <label className="block text-[10px] uppercase tracking-[0.22em] text-white/55 mb-2.5">
+                {typeCategory.nom}
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {PHOTO_TYPES.map((type) => {
+                  const active = activeFilters.some(
+                    (f) => f.colonne === "type" && f.value === type,
+                  );
+                  return (
+                    <button
+                      key={type}
+                      onClick={() =>
+                        active
+                          ? setActiveFilters((prev) =>
+                              prev.filter(
+                                (f) =>
+                                  !(f.colonne === "type" && f.value === type),
+                              ),
+                            )
+                          : addFilter(typeCategory, type)
+                      }
+                      className={`min-h-9 rounded-lg border px-3 py-2 text-left text-[11px] uppercase tracking-[0.08em] transition-all duration-200 ${
+                        active
+                          ? "bg-cyan-300/12 border-cyan-300/45 text-cyan-200"
+                          : "bg-white/[0.035] border-white/10 text-white/55 hover:bg-white/[0.06] hover:border-white/20 hover:text-white/85"
+                      }`}
+                    >
+                      {type}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Photo restauree */}
+          <div className="flex items-center justify-between gap-3 pt-2 border-t border-white/5">
+            <span className="text-[10px] uppercase tracking-[0.22em] text-white/45">
+              Photo restaur&eacute;e
+            </span>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setFilterRestaureeOui((v) => !v)}
+                className={`rounded-lg border px-3 py-1.5 text-[10px] uppercase tracking-[0.1em] transition-all ${
+                  filterRestaureeOui
+                    ? "bg-cyan-300/12 border-cyan-300/45 text-cyan-200"
+                    : "bg-white/[0.035] border-white/10 text-white/55 hover:bg-white/[0.06] hover:text-white/85"
+                }`}
+              >
+                Oui
+              </button>
+              <button
+                onClick={() => setFilterRestaureeNon((v) => !v)}
+                className={`rounded-lg border px-3 py-1.5 text-[10px] uppercase tracking-[0.1em] transition-all ${
+                  filterRestaureeNon
+                    ? "bg-cyan-300/12 border-cyan-300/45 text-cyan-200"
+                    : "bg-white/[0.035] border-white/10 text-white/55 hover:bg-white/[0.06] hover:text-white/85"
+                }`}
+              >
+                Non
+              </button>
+            </div>
+          </div>
+
           {categories.length === 0 ? (
             <p className="text-white/25 text-[10px] uppercase tracking-[0.25em]">
               Aucune catégorie disponible
             </p>
           ) : (
-            categories
-              .filter(
-                (c) => !["village", "year", "restored"].includes(c.colonne),
-              )
-              .map((cat) => {
+            otherCategories.map((cat) => {
                 const currentSuggestions = suggestions[cat.id] ?? [];
                 const currentValue = searchValues[cat.id] ?? "";
                 const isFocused = focusedCat === cat.id;
@@ -1100,28 +1258,64 @@ function GalerieContent() {
 
                 return (
                   <div key={cat.id}>
-                    <label className="block text-[10px] uppercase tracking-[0.3em] text-white mb-2">
+                    <label className="block text-[10px] uppercase tracking-[0.22em] text-white/55 mb-2.5">
                       {cat.nom}
                     </label>
 
-                    {cat.colonne === "restored" ? (
+                    {cat.colonne === "type" ? (
+                      <>
+                        <div className="grid grid-cols-2 gap-2">
+                          {PHOTO_TYPES.map((type) => {
+                            const active = activeFilters.some(
+                              (f) =>
+                                f.colonne === "type" && f.value === type,
+                            );
+                            return (
+                              <button
+                                key={type}
+                                onClick={() =>
+                                  active
+                                    ? setActiveFilters((prev) =>
+                                        prev.filter(
+                                          (f) =>
+                                            !(
+                                              f.colonne === "type" &&
+                                              f.value === type
+                                            ),
+                                        ),
+                                      )
+                                    : addFilter(cat, type)
+                                }
+                                className={`min-h-9 rounded-lg border px-3 py-2 text-left text-[11px] uppercase tracking-[0.08em] transition-all duration-200 ${
+                                  active
+                                    ? "bg-cyan-300/12 border-cyan-300/45 text-cyan-200"
+                                    : "bg-white/[0.035] border-white/10 text-white/55 hover:bg-white/[0.06] hover:border-white/20 hover:text-white/85"
+                                }`}
+                              >
+                                {type}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </>
+                    ) : cat.colonne === "restored" ? (
                       <div className="flex gap-2">
                         <button
                           onClick={() => setFilterRestaureeOui((v) => !v)}
-                          className={`flex-1 py-2 rounded-xl border text-xs uppercase tracking-[0.25em] transition-all duration-200 ${
+                          className={`flex-1 py-2 rounded-lg border text-[11px] uppercase tracking-[0.1em] transition-all duration-200 ${
                             filterRestaureeOui
-                              ? "bg-cyan-300/10 border-cyan-300/40 text-cyan-300"
-                              : "bg-white/5 border-white/10 text-white/50 hover:bg-white/7 hover:border-white/20 hover:text-white/70"
+                              ? "bg-cyan-300/12 border-cyan-300/45 text-cyan-200"
+                              : "bg-white/[0.035] border-white/10 text-white/55 hover:bg-white/[0.06] hover:border-white/20 hover:text-white/80"
                           }`}
                         >
                           Oui
                         </button>
                         <button
                           onClick={() => setFilterRestaureeNon((v) => !v)}
-                          className={`flex-1 py-2 rounded-xl border text-xs uppercase tracking-[0.25em] transition-all duration-200 ${
+                          className={`flex-1 py-2 rounded-lg border text-[11px] uppercase tracking-[0.1em] transition-all duration-200 ${
                             filterRestaureeNon
-                              ? "bg-cyan-300/10 border-cyan-300/40 text-cyan-300"
-                              : "bg-white/5 border-white/10 text-white/50 hover:bg-white/7 hover:border-white/20 hover:text-white/70"
+                              ? "bg-cyan-300/12 border-cyan-300/45 text-cyan-200"
+                              : "bg-white/[0.035] border-white/10 text-white/55 hover:bg-white/[0.06] hover:border-white/20 hover:text-white/80"
                           }`}
                         >
                           Non
@@ -1166,11 +1360,11 @@ function GalerieContent() {
                               }
                             }}
                             placeholder="Rechercher…"
-                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/25 focus:outline-none focus:border-cyan-300/50 transition-all"
+                            className="w-full bg-white/[0.035] border border-white/10 rounded-lg px-3.5 py-2.5 text-sm text-white placeholder-white/25 focus:outline-none focus:border-cyan-300/45 transition-all"
                           />
 
                           {(showSuggestions || showFreeText) && (
-                            <div className="absolute top-full left-0 right-0 mt-1 bg-zinc-900 border border-white/10 rounded-xl overflow-hidden z-10 shadow-[0_4px_24px_rgba(0,0,0,0.5)]">
+                            <div className="absolute top-full left-0 right-0 mt-1 bg-zinc-900 border border-white/10 rounded-lg overflow-hidden z-10 shadow-[0_4px_24px_rgba(0,0,0,0.5)]">
                               {currentSuggestions.map((s) => (
                                 <button
                                   key={s}
@@ -1225,67 +1419,11 @@ function GalerieContent() {
               })
           )}
 
-          {/* Année — range */}
-          <div>
-            <label className="block text-[10px] uppercase tracking-[0.3em] text-white/40 mb-3">
-              Année
-            </label>
-            <div className="flex items-center gap-2">
-              <input
-                type="number"
-                inputMode="numeric"
-                placeholder="Du"
-                value={yearFrom}
-                onChange={(e) => setYearFrom(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-white/30 focus:outline-none focus:border-cyan-300/40 transition-all"
-              />
-              <span className="text-white/30 text-[10px] uppercase tracking-[0.2em] shrink-0">
-                à
-              </span>
-              <input
-                type="number"
-                inputMode="numeric"
-                placeholder="Jusqu'à"
-                value={yearTo}
-                onChange={(e) => setYearTo(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-white/30 focus:outline-none focus:border-cyan-300/40 transition-all"
-              />
-            </div>
-          </div>
-
-          {/* Photo restaurée */}
-          <div className="flex items-center justify-between gap-3 pt-2 border-t border-white/5">
-            <span className="text-[10px] uppercase tracking-[0.3em] text-white/40">
-              Photo restaurée
-            </span>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setFilterRestaureeOui((v) => !v)}
-                className={`px-3 py-1 rounded-full border text-[10px] uppercase tracking-[0.2em] transition-all ${
-                  filterRestaureeOui
-                    ? "bg-cyan-300/15 border-cyan-300/50 text-cyan-300"
-                    : "bg-white/5 border-white/10 text-white/50 hover:text-white/80"
-                }`}
-              >
-                Oui
-              </button>
-              <button
-                onClick={() => setFilterRestaureeNon((v) => !v)}
-                className={`px-3 py-1 rounded-full border text-[10px] uppercase tracking-[0.2em] transition-all ${
-                  filterRestaureeNon
-                    ? "bg-cyan-300/15 border-cyan-300/50 text-cyan-300"
-                    : "bg-white/5 border-white/10 text-white/50 hover:text-white/80"
-                }`}
-              >
-                Non
-              </button>
-            </div>
-          </div>
         </div>
 
         {/* Pied du panneau */}
         {totalActiveFilters > 0 && (
-          <div className="shrink-0 px-6 py-4 border-t border-white/10">
+          <div className="shrink-0 px-5 py-4 border-t border-white/10">
             <button
               onClick={() => {
                 setActiveFilters([]);
@@ -1296,7 +1434,7 @@ function GalerieContent() {
                 setYearFrom("");
                 setYearTo("");
               }}
-              className="w-full py-2.5 rounded-full border border-white/10 text-white/40 text-xs uppercase tracking-[0.25em] hover:border-white/20 hover:text-white/60 transition-all"
+              className="w-full rounded-lg border border-white/10 py-2.5 text-[11px] uppercase tracking-[0.14em] text-white/45 hover:border-white/20 hover:bg-white/[0.04] hover:text-white/70 transition-all"
             >
               Effacer tous les filtres
             </button>

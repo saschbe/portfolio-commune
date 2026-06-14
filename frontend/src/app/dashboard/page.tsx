@@ -11,6 +11,7 @@ import { resizeImage } from "@/lib/resizeImage";
 import type { TurnstileInstance } from "@marsidev/react-turnstile";
 import { supabase } from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
+import PhotoTypeSelector from "@/components/PhotoTypeSelector";
 
 const LocationPicker = dynamic(
   () => import("@/components/LocationPicker"),
@@ -337,15 +338,11 @@ export default function DashboardPage() {
                         className={inputClass}
                       />
                     </div>
-                    <div>
+                    <div className="sm:col-span-2">
                       <label className={labelClass}>Type</label>
-                      <input
-                        type="text"
-                        required
+                      <PhotoTypeSelector
                         value={form.type}
-                        onChange={(e) => setField("type", e.target.value)}
-                        placeholder="Ex : Photo de famille…"
-                        className={inputClass}
+                        onChange={(value) => setField("type", value)}
                       />
                     </div>
                   </div>

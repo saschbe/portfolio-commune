@@ -188,6 +188,14 @@ function PhotoContent() {
   const headerRef = useRef<HTMLElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const enteredFullscreenRef = useRef(false);
+  const lightboxPointers = useRef<Map<number, { x: number; y: number }>>(
+    new Map(),
+  );
+  const pinchZoomRef = useRef({
+    active: false,
+    startDistance: 0,
+    startScale: 1,
+  });
   const zoomDragRef = useRef({
     active: false,
     moved: false,
@@ -256,6 +264,12 @@ function PhotoContent() {
       if (next === 1) setZoomPan({ x: 0, y: 0 });
       return next;
     });
+  }, []);
+
+  const setZoom = useCallback((scale: number) => {
+    const next = Math.min(4, Math.max(1, Number(scale.toFixed(2))));
+    if (next === 1) setZoomPan({ x: 0, y: 0 });
+    setZoomScale(next);
   }, []);
 
   // ── Navigate without page reload (mobile swipe) ───────────────────────────
@@ -963,7 +977,7 @@ function PhotoContent() {
           {/* touch-action: pinch-zoom pour le zoom natif mobile */}
           <div
             className="photo-lightbox-stage flex h-full w-full items-center justify-center overflow-hidden px-3 py-18 sm:px-8"
-            style={{ touchAction: zoomScale > 1 ? "none" : "pan-y" }}
+            style={{ touchAction: "none" }}
             onClick={(e) => {
               e.stopPropagation();
             }}
@@ -978,6 +992,25 @@ function PhotoContent() {
             onPointerDown={(e) => {
               e.preventDefault();
               e.currentTarget.setPointerCapture(e.pointerId);
+              lightboxPointers.current.set(e.pointerId, {
+                x: e.clientX,
+                y: e.clientY,
+              });
+
+              if (lightboxPointers.current.size >= 2) {
+                const points = Array.from(lightboxPointers.current.values());
+                const dx = points[0].x - points[1].x;
+                const dy = points[0].y - points[1].y;
+                pinchZoomRef.current = {
+                  active: true,
+                  startDistance: Math.hypot(dx, dy),
+                  startScale: zoomScale,
+                };
+                lightboxSwipeRef.current.active = false;
+                zoomDragRef.current.active = false;
+                return;
+              }
+
               if (zoomScale <= 1) {
                 lightboxSwipeRef.current = {
                   active: true,
@@ -997,6 +1030,26 @@ function PhotoContent() {
               };
             }}
             onPointerMove={(e) => {
+              if (lightboxPointers.current.has(e.pointerId)) {
+                lightboxPointers.current.set(e.pointerId, {
+                  x: e.clientX,
+                  y: e.clientY,
+                });
+              }
+
+              if (pinchZoomRef.current.active) {
+                const points = Array.from(lightboxPointers.current.values());
+                if (points.length >= 2 && pinchZoomRef.current.startDistance > 0) {
+                  const dx = points[0].x - points[1].x;
+                  const dy = points[0].y - points[1].y;
+                  const distance = Math.hypot(dx, dy);
+                  const ratio = distance / pinchZoomRef.current.startDistance;
+                  setZoom(pinchZoomRef.current.startScale * ratio);
+                }
+                e.preventDefault();
+                return;
+              }
+
               if (lightboxSwipeRef.current.active && zoomScale <= 1) {
                 const dx = e.clientX - lightboxSwipeRef.current.startX;
                 const dy = e.clientY - lightboxSwipeRef.current.startY;
@@ -1020,6 +1073,15 @@ function PhotoContent() {
               });
             }}
             onPointerUp={(e) => {
+              lightboxPointers.current.delete(e.pointerId);
+              if (pinchZoomRef.current.active) {
+                pinchZoomRef.current.active = false;
+                lightboxSwipeRef.current.active = false;
+                zoomDragRef.current.active = false;
+                e.currentTarget.releasePointerCapture(e.pointerId);
+                return;
+              }
+
               if (lightboxSwipeRef.current.active && zoomScale <= 1) {
                 const dx = e.clientX - lightboxSwipeRef.current.startX;
                 const dy = e.clientY - lightboxSwipeRef.current.startY;
@@ -1038,6 +1100,8 @@ function PhotoContent() {
               e.currentTarget.releasePointerCapture(e.pointerId);
             }}
             onPointerCancel={(e) => {
+              lightboxPointers.current.delete(e.pointerId);
+              pinchZoomRef.current.active = false;
               lightboxSwipeRef.current.active = false;
               zoomDragRef.current.active = false;
               e.currentTarget.releasePointerCapture(e.pointerId);

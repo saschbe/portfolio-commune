@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { supabase } from "@/lib/supabase";
 import NavBar from "@/components/navigation/NavBar";
+import { PHOTO_TYPES, photoHasType } from "@/lib/photoTypes";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -260,17 +261,26 @@ export default function CartePage() {
         !selectedVillages.includes(photo.village)
       )
         return false;
-      const passesFilters = activeFilters.every((f) => {
-        const val = (photo as unknown as Record<string, unknown>)[f.colonne];
-        if (val === null || val === undefined) return false;
-        if (typeof val === "boolean") {
-          const v = f.value.toLowerCase();
-          return val
-            ? v === "oui" || v === "true"
-            : v === "non" || v === "false";
-        }
-        return String(val).toLowerCase() === f.value.toLowerCase();
-      });
+      const typeFilters = activeFilters.filter((f) => f.colonne === "type");
+      if (
+        typeFilters.length > 0 &&
+        !typeFilters.some((f) => photoHasType(photo.type, f.value))
+      )
+        return false;
+
+      const passesFilters = activeFilters
+        .filter((f) => f.colonne !== "type")
+        .every((f) => {
+          const val = (photo as unknown as Record<string, unknown>)[f.colonne];
+          if (val === null || val === undefined) return false;
+          if (typeof val === "boolean") {
+            const v = f.value.toLowerCase();
+            return val
+              ? v === "oui" || v === "true"
+              : v === "non" || v === "false";
+          }
+          return String(val).toLowerCase() === f.value.toLowerCase();
+        });
       if (!passesFilters) return false;
       if (yearFrom || yearTo) {
         const y = parseInt(photo.year, 10);
@@ -298,8 +308,12 @@ export default function CartePage() {
     return lieux.filter((l) => {
       if (selectedVillages.length > 0 && !selectedVillages.includes(l.village))
         return false;
-      const typeFilter = activeFilters.find((f) => f.colonne === "type");
-      if (typeFilter && l.type !== typeFilter.value) return false;
+      const typeFilters = activeFilters.filter((f) => f.colonne === "type");
+      if (
+        typeFilters.length > 0 &&
+        !typeFilters.some((f) => l.type === f.value)
+      )
+        return false;
       return true;
     });
   }, [lieux, selectedVillages, activeFilters]);
@@ -456,83 +470,130 @@ export default function CartePage() {
                     {cat.nom}
                   </label>
 
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={currentValue}
-                      onChange={(e) =>
-                        handleSearchChange(cat.id, cat.colonne, e.target.value)
-                      }
-                      onFocus={() => setFocusedCat(cat.id)}
-                      onBlur={() =>
-                        setTimeout(() => {
-                          setFocusedCat(null);
-                          setSuggestions((prev) => ({ ...prev, [cat.id]: [] }));
-                        }, 150)
-                      }
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && currentValue.trim())
-                          addFilter(cat, currentValue.trim());
-                        if (e.key === "Escape") {
-                          setSearchValues((prev) => ({
-                            ...prev,
-                            [cat.id]: "",
-                          }));
-                          setSuggestions((prev) => ({ ...prev, [cat.id]: [] }));
-                        }
-                      }}
-                      placeholder="Rechercher…"
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/25 focus:outline-none focus:border-cyan-300/50 transition-all"
-                    />
-
-                    {(showSuggestions || showFreeText) && (
-                      <div className="absolute top-full left-0 right-0 mt-1 bg-zinc-900 border border-white/10 rounded-xl overflow-hidden z-10 shadow-[0_4px_24px_rgba(0,0,0,0.5)]">
-                        {currentSuggestions.map((s) => (
+                  {cat.colonne === "type" ? (
+                    <div className="flex flex-wrap gap-2">
+                      {PHOTO_TYPES.map((type) => {
+                        const active = activeFilters.some(
+                          (f) => f.colonne === "type" && f.value === type,
+                        );
+                        return (
                           <button
-                            key={s}
-                            onMouseDown={() => addFilter(cat, s)}
-                            className="w-full text-left px-4 py-2.5 text-sm text-white/70 hover:text-cyan-300 hover:bg-white/5 transition-all"
-                          >
-                            {s}
-                          </button>
-                        ))}
-                        {showFreeText && (
-                          <button
-                            onMouseDown={() =>
-                              addFilter(cat, currentValue.trim())
+                            key={type}
+                            onClick={() =>
+                              active
+                                ? setActiveFilters((prev) =>
+                                    prev.filter(
+                                      (f) =>
+                                        !(
+                                          f.colonne === "type" &&
+                                          f.value === type
+                                        ),
+                                    ),
+                                  )
+                                : addFilter(cat, type)
                             }
-                            className="w-full text-left px-4 py-2.5 text-sm text-white/50 hover:text-cyan-300 hover:bg-white/5 transition-all border-t border-white/5"
+                            className={`px-3 py-1.5 rounded-full border text-[11px] uppercase tracking-[0.2em] transition-all duration-200 ${
+                              active
+                                ? "bg-cyan-300/15 border-cyan-300/50 text-cyan-300"
+                                : "bg-white/5 border-white/10 text-white/50 hover:border-white/25 hover:text-white/80"
+                            }`}
                           >
-                            Filtrer par « {currentValue.trim()} »
+                            {type}
                           </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={currentValue}
+                          onChange={(e) =>
+                            handleSearchChange(
+                              cat.id,
+                              cat.colonne,
+                              e.target.value,
+                            )
+                          }
+                          onFocus={() => setFocusedCat(cat.id)}
+                          onBlur={() =>
+                            setTimeout(() => {
+                              setFocusedCat(null);
+                              setSuggestions((prev) => ({
+                                ...prev,
+                                [cat.id]: [],
+                              }));
+                            }, 150)
+                          }
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && currentValue.trim())
+                              addFilter(cat, currentValue.trim());
+                            if (e.key === "Escape") {
+                              setSearchValues((prev) => ({
+                                ...prev,
+                                [cat.id]: "",
+                              }));
+                              setSuggestions((prev) => ({
+                                ...prev,
+                                [cat.id]: [],
+                              }));
+                            }
+                          }}
+                          placeholder="Rechercher…"
+                          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/25 focus:outline-none focus:border-cyan-300/50 transition-all"
+                        />
+
+                        {(showSuggestions || showFreeText) && (
+                          <div className="absolute top-full left-0 right-0 mt-1 bg-zinc-900 border border-white/10 rounded-xl overflow-hidden z-10 shadow-[0_4px_24px_rgba(0,0,0,0.5)]">
+                            {currentSuggestions.map((s) => (
+                              <button
+                                key={s}
+                                onMouseDown={() => addFilter(cat, s)}
+                                className="w-full text-left px-4 py-2.5 text-sm text-white/70 hover:text-cyan-300 hover:bg-white/5 transition-all"
+                              >
+                                {s}
+                              </button>
+                            ))}
+                            {showFreeText && (
+                              <button
+                                onMouseDown={() =>
+                                  addFilter(cat, currentValue.trim())
+                                }
+                                className="w-full text-left px-4 py-2.5 text-sm text-white/50 hover:text-cyan-300 hover:bg-white/5 transition-all border-t border-white/5"
+                              >
+                                Filtrer par « {currentValue.trim()} »
+                              </button>
+                            )}
+                          </div>
                         )}
                       </div>
-                    )}
-                  </div>
 
-                  {activeFilters.filter((f) => f.colonne === cat.colonne)
-                    .length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 mt-2">
-                      {activeFilters
-                        .map((f, i) =>
-                          f.colonne === cat.colonne ? { f, i } : null,
-                        )
-                        .filter(Boolean)
-                        .map((item) => (
-                          <span
-                            key={item!.i}
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-cyan-300/10 border border-cyan-300/30 text-cyan-300 text-[9px] uppercase tracking-[0.15em]"
-                          >
-                            {item!.f.value}
-                            <button
-                              onClick={() => removeFilter(item!.i)}
-                              className="text-cyan-300/50 hover:text-cyan-300 leading-none"
-                            >
-                              ✕
-                            </button>
-                          </span>
-                        ))}
-                    </div>
+                      {activeFilters.filter((f) => f.colonne === cat.colonne)
+                        .length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mt-2">
+                          {activeFilters
+                            .map((f, i) =>
+                              f.colonne === cat.colonne ? { f, i } : null,
+                            )
+                            .filter(Boolean)
+                            .map((item) => (
+                              <span
+                                key={item!.i}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-cyan-300/10 border border-cyan-300/30 text-cyan-300 text-[9px] uppercase tracking-[0.15em]"
+                              >
+                                {item!.f.value}
+                                <button
+                                  onClick={() => removeFilter(item!.i)}
+                                  className="text-cyan-300/50 hover:text-cyan-300 leading-none"
+                                >
+                                  ✕
+                                </button>
+                              </span>
+                            ))}
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               );

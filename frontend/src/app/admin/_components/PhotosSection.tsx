@@ -8,6 +8,8 @@ import { logActivite } from "@/lib/logActivite";
 import { resizeImage } from "@/lib/resizeImage";
 import { deletePhotoFiles } from "@/lib/deletePhoto";
 import { imageUrl } from "@/lib/imageUrl";
+import { PHOTO_TYPES, parsePhotoTypes, photoHasType } from "@/lib/photoTypes";
+import PhotoTypeSelector from "@/components/PhotoTypeSelector";
 
 const LocationPicker = dynamic(() => import("@/components/LocationPicker"), {
   ssr: false,
@@ -128,8 +130,11 @@ export default function PhotosSection() {
 
   const photoTypes = useMemo(() => {
     return Array.from(
-      new Set(photos.map((photo) => photo.type).filter(Boolean)),
-    ).sort((a, b) => a.localeCompare(b));
+      new Set([
+        ...PHOTO_TYPES,
+        ...photos.flatMap((photo) => parsePhotoTypes(photo.type)),
+      ]),
+    );
   }, [photos]);
 
   const filteredPhotos = useMemo(() => {
@@ -144,7 +149,8 @@ export default function PhotosSection() {
           .includes(search);
       const matchesVillage =
         filters.village === "all" || photo.village === filters.village;
-      const matchesType = filters.type === "all" || photo.type === filters.type;
+      const matchesType =
+        filters.type === "all" || photoHasType(photo.type, filters.type);
       const matchesRestored =
         filters.restored === "all" ||
         (filters.restored === "restored" && photo.restored) ||
@@ -429,15 +435,11 @@ export default function PhotosSection() {
                   className={inputClass}
                 />
               </div>
-              <div>
+              <div className="md:col-span-2">
                 <label className={labelClass}>Type</label>
-                <input
-                  type="text"
-                  required
+                <PhotoTypeSelector
                   value={form.type}
-                  onChange={(e) => setField("type", e.target.value)}
-                  placeholder="Ex : Photo ancienne…"
-                  className={inputClass}
+                  onChange={(value) => setField("type", value)}
                 />
               </div>
             </div>
@@ -728,16 +730,11 @@ export default function PhotosSection() {
                     className={inputClass}
                   />
                 </div>
-                <div>
+                <div className="md:col-span-2">
                   <label className={labelClass}>Type</label>
-                  <input
-                    type="text"
-                    required
+                  <PhotoTypeSelector
                     value={editPhoto.type}
-                    onChange={(e) =>
-                      setEditPhoto({ ...editPhoto, type: e.target.value })
-                    }
-                    className={inputClass}
+                    onChange={(type) => setEditPhoto({ ...editPhoto, type })}
                   />
                 </div>
               </div>
