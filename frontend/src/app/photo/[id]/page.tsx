@@ -187,6 +187,7 @@ function PhotoContent() {
   const [zoomPan, setZoomPan] = useState({ x: 0, y: 0 });
   const headerRef = useRef<HTMLElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
+  const enteredFullscreenRef = useRef(false);
   const zoomDragRef = useRef({
     active: false,
     moved: false,
@@ -226,11 +227,27 @@ function PhotoContent() {
   const closeZoom = useCallback(() => {
     setZoomed(false);
     resetZoom();
+
+    if (enteredFullscreenRef.current && document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    }
+    enteredFullscreenRef.current = false;
   }, [resetZoom]);
 
   const openZoom = useCallback(() => {
     resetZoom();
     setZoomed(true);
+
+    if (document.fullscreenEnabled && !document.fullscreenElement) {
+      document.documentElement
+        .requestFullscreen({ navigationUI: "hide" })
+        .then(() => {
+          enteredFullscreenRef.current = true;
+        })
+        .catch(() => {
+          enteredFullscreenRef.current = false;
+        });
+    }
   }, [resetZoom]);
 
   const changeZoom = useCallback((delta: number) => {

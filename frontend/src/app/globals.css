@@ -193,9 +193,9 @@ input[type="number"] {
   appearance: textfield;
 }
 
-@media (orientation: landscape) and (max-height: 520px) and (pointer: coarse) {
+@media (orientation: landscape) and (max-height: 760px) and (pointer: coarse) {
   .photo-lightbox-controls {
-    top: 0.5rem;
+    top: max(0.25rem, env(safe-area-inset-top));
     gap: 0.25rem;
     padding: 0.25rem;
   }
@@ -210,19 +210,19 @@ input[type="number"] {
   }
 
   .photo-lightbox-close {
-    top: 0.5rem;
-    right: 0.5rem;
+    top: max(0.25rem, env(safe-area-inset-top));
+    right: max(0.5rem, env(safe-area-inset-right));
     width: 2.25rem;
     height: 2.25rem;
   }
 
   .photo-lightbox-stage {
-    padding: 2.75rem 3.25rem 0.75rem;
+    padding: 0.35rem max(3.25rem, calc(env(safe-area-inset-right) + 0.75rem)) 0.35rem max(3.25rem, calc(env(safe-area-inset-left) + 0.75rem));
   }
 
   .photo-lightbox-image {
-    max-width: calc(100vw - 6.5rem) !important;
-    max-height: calc(100dvh - 3.5rem) !important;
+    max-width: calc(100vw - 7rem) !important;
+    max-height: calc(100dvh - 0.75rem) !important;
   }
 
   .photo-lightbox-hint {
