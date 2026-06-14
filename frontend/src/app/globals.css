@@ -109,11 +109,27 @@ body {
 }
 
 html {
+  background: #000000;
   scroll-behavior: smooth;
 }
 
 body {
-  background: black;
+  background: #000000;
+  color-scheme: dark;
+}
+
+@supports (padding: env(safe-area-inset-bottom)) {
+  body::after {
+    content: "";
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 2147483647;
+    height: env(safe-area-inset-bottom);
+    pointer-events: none;
+    background: #000000;
+  }
 }
 
 * {

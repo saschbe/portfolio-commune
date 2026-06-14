@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import { logActivite } from "@/lib/logActivite";
 import { deletePhotoFiles } from "@/lib/deletePhoto";
-import { imageUrl, imageProps } from "@/lib/imageUrl";
+import { imageUrl } from "@/lib/imageUrl";
 
 type Photo = {
   id: string;
@@ -31,14 +31,7 @@ export default function PendingSection({
   const [actionError, setActionError] = useState<string | null>(null);
   const currentUserId = useRef<string | null>(null);
 
-  useEffect(() => {
-    loadPending();
-    supabase.auth.getUser().then(({ data }) => {
-      currentUserId.current = data.user?.id ?? null;
-    });
-  }, []);
-
-  async function loadPending() {
+  const loadPending = useCallback(async () => {
     const { data, error } = await supabase
       .from("photos")
       .select("*")
@@ -48,7 +41,16 @@ export default function PendingSection({
     const list = data ?? [];
     setPhotos(list);
     setLoading(false);
-  }
+  }, []);
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      void loadPending();
+    });
+    supabase.auth.getUser().then(({ data }) => {
+      currentUserId.current = data.user?.id ?? null;
+    });
+  }, [loadPending]);
 
   async function handleApprove(photo: Photo) {
     setProcessingId(photo.id);

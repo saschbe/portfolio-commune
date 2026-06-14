@@ -61,7 +61,7 @@ export default function MentionsLegalesPage() {
             <br className="md:hidden" /> légales
           </h1>
           <p className="mt-5 text-white/30 text-sm leading-relaxed max-w-md">
-            Règles d'utilisation et informations légales relatives au site
+            Règles d&apos;utilisation et informations légales relatives au site
             Plombières en Images.
           </p>
         </div>
@@ -107,9 +107,9 @@ export default function MentionsLegalesPage() {
             <div className="flex items-start gap-4 mb-8">
               <span className="mt-2 shrink-0 w-1 h-1 rounded-full bg-cyan-300/40" />
               <p className="text-white/55 text-sm leading-relaxed">
-                Pour toute demande de retrait d'image, exercice de vos droits
-                (accès, rectification, suppression) ou signalement d'un contenu
-                non conforme, contactez notre équipe à l'adresse suivante&nbsp;:
+                Pour toute demande de retrait d&apos;image, exercice de vos droits
+                (accès, rectification, suppression) ou signalement d&apos;un contenu
+                non conforme, contactez notre équipe à l&apos;adresse suivante&nbsp;:
               </p>
             </div>
             <a

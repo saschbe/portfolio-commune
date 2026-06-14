@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
-import { imageUrl, imageProps } from "@/lib/imageUrl";
+import { imageUrl } from "@/lib/imageUrl";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 

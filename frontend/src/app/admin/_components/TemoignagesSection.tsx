@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
@@ -60,14 +60,7 @@ export default function TemoignagesSection() {
   const [loading, setLoading] = useState(true);
   const currentUserId = useRef<string | null>(null);
 
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      currentUserId.current = data.user?.id ?? null;
-    });
-    refresh();
-  }, []);
-
-  async function refresh() {
+  const refresh = useCallback(async () => {
     setLoading(true);
 
     const { data: temoignages } = await supabase
@@ -101,7 +94,16 @@ export default function TemoignagesSection() {
 
     setList(merged);
     setLoading(false);
-  }
+  }, []);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      currentUserId.current = data.user?.id ?? null;
+    });
+    queueMicrotask(() => {
+      void refresh();
+    });
+  }, [refresh]);
 
   async function loadSignalements(temoignageId: string) {
     if (signalements[temoignageId]) return;

@@ -55,20 +55,6 @@ function fmtDate(iso: string): string {
   });
 }
 
-function getPeriodFrom(period: string): string | null {
-  const now = new Date();
-  if (period === "today") {
-    return new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
-  }
-  if (period === "week") {
-    const d = new Date(now); d.setDate(now.getDate() - 7); return d.toISOString();
-  }
-  if (period === "month") {
-    return new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-  }
-  return null;
-}
-
 // ── Diff before/after ─────────────────────────────────────────────────────────
 
 function DiffView({
@@ -194,7 +180,11 @@ export default function LogsSection() {
     URL.revokeObjectURL(url);
   }
 
-  useEffect(() => { loadLogs(); }, [filterType, filterPeriod]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    queueMicrotask(() => {
+      void loadLogs();
+    });
+  }, [filterType, filterPeriod]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="max-w-4xl">

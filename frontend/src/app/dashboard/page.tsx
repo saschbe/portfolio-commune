@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import NavBar from "@/components/navigation/NavBar";
 import { Turnstile } from "@marsidev/react-turnstile";
-import { imageUrl, imageProps } from "@/lib/imageUrl";
+import { imageUrl } from "@/lib/imageUrl";
 import { resizeImage } from "@/lib/resizeImage";
 import type { TurnstileInstance } from "@marsidev/react-turnstile";
 import { supabase } from "@/lib/supabase";

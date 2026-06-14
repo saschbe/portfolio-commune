@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
     `full/${key}`,
   ]);
 
-  let originalResult: { error: string | null } = { error: null };
+  const originalResult: { error: string | null } = { error: null };
   if (originalLocation === "supabase") {
     const { error } = await supabaseAdmin.storage.from("photos-originals").remove([key]);
     originalResult.error = error?.message ?? null;

@@ -256,7 +256,9 @@ function PhotoContent() {
   // ── Sync currentId when URL id changes (Link clicks, browser back) ────────
 
   useEffect(() => {
-    setCurrentId(id);
+    queueMicrotask(() => {
+      setCurrentId(id);
+    });
   }, [id]);
 
   // ── Keyboard navigation (desktop — keeps router.push) ─────────────────────
@@ -1161,7 +1163,7 @@ function PhotoContent() {
       )}
 
       {/* ── Barre navigation mobile sticky ────────────────────────── */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 bg-black/80 backdrop-blur-xl border-t border-white/10 px-4 py-3 flex items-center justify-between lg:hidden">
+      <div className="fixed bottom-0 left-0 right-0 z-40 bg-black border-t border-white/10 px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] flex items-center justify-between lg:hidden">
         {prevId ? (
           <Link
             href={`/photo/${prevId}${contextSearch}`}

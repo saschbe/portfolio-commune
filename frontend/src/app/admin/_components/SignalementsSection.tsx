@@ -5,7 +5,7 @@ import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import { logActivite } from "@/lib/logActivite";
 import { deletePhotoFiles } from "@/lib/deletePhoto";
-import { imageUrl, imageProps } from "@/lib/imageUrl";
+import { imageUrl } from "@/lib/imageUrl";
 
 type Signalement = {
   id: string;
@@ -83,7 +83,9 @@ export default function SignalementsSection({ onCountChange }: { onCountChange: 
   }, []);
 
   useEffect(() => {
-    load();
+    queueMicrotask(() => {
+      void load();
+    });
     supabase.auth.getUser().then(({ data }) => {
       currentUserId.current = data.user?.id ?? null;
     });

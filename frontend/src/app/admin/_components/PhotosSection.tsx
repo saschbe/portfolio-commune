@@ -7,7 +7,7 @@ import { supabase } from "@/lib/supabase";
 import { logActivite } from "@/lib/logActivite";
 import { resizeImage } from "@/lib/resizeImage";
 import { deletePhotoFiles } from "@/lib/deletePhoto";
-import { imageUrl, imageProps } from "@/lib/imageUrl";
+import { imageUrl } from "@/lib/imageUrl";
 
 const LocationPicker = dynamic(() => import("@/components/LocationPicker"), {
   ssr: false,
@@ -179,8 +179,6 @@ export default function PhotosSection() {
 
     try {
       const uuid = crypto.randomUUID();
-      const ext = form.file.name.split(".").pop()?.toLowerCase() ?? "jpg";
-      const originalFilename = `${uuid}.${ext}`;
       const webpFilename = `${uuid}.webp`;
 
       const {
