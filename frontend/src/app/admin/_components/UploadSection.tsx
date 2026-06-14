@@ -36,6 +36,14 @@ type PhotoEntry = {
   showMap: boolean;
 };
 
+type ExistingPhotoPoint = {
+  id: string;
+  title: string;
+  village: string;
+  latitude: number;
+  longitude: number;
+};
+
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const TYPES = ["Ancienne", "Moderne", "Aérienne", "Événement"] as const;
@@ -114,11 +122,13 @@ async function readExif(file: File): Promise<Partial<PhotoEntry> & { exifFields:
 function UploadCard({
   entry,
   previousLocation,
+  existingPhotoPoints,
   onUpdate,
   onRemove,
 }: {
   entry: PhotoEntry;
   previousLocation?: { latitude: string; longitude: string; title: string };
+  existingPhotoPoints: ExistingPhotoPoint[];
   onUpdate: (id: string, patch: Partial<PhotoEntry>) => void;
   onRemove: (id: string) => void;
 }) {
@@ -293,6 +303,7 @@ function UploadCard({
                   lat={entry.latitude}
                   lng={entry.longitude}
                   fallbackCenter={villageCenter}
+                  referencePoints={existingPhotoPoints}
                   onChange={(lat, lng) =>
                     onUpdate(entry.id, { latitude: lat, longitude: lng })
                   }
@@ -340,6 +351,7 @@ function UploadCard({
 
 export default function UploadSection() {
   const [entries, setEntries] = useState<PhotoEntry[]>([]);
+  const [existingPhotoPoints, setExistingPhotoPoints] = useState<ExistingPhotoPoint[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [globalError, setGlobalError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -359,6 +371,43 @@ export default function UploadSection() {
   useEffect(() => {
     return () => {
       entriesRef.current.forEach((e) => URL.revokeObjectURL(e.previewUrl));
+    };
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
+
+    async function loadExistingPhotoPoints() {
+      const { data, error } = await supabase
+        .from("photos")
+        .select("id,title,village,latitude,longitude")
+        .not("latitude", "is", null)
+        .not("longitude", "is", null)
+        .order("created_at", { ascending: false });
+
+      if (!alive || error) return;
+
+      setExistingPhotoPoints(
+        (data ?? [])
+          .filter(
+            (photo): photo is ExistingPhotoPoint =>
+              typeof photo.latitude === "number" &&
+              typeof photo.longitude === "number",
+          )
+          .map((photo) => ({
+            id: photo.id,
+            title: photo.title || "Photo existante",
+            village: photo.village || "",
+            latitude: photo.latitude,
+            longitude: photo.longitude,
+          })),
+      );
+    }
+
+    loadExistingPhotoPoints();
+
+    return () => {
+      alive = false;
     };
   }, []);
 
@@ -680,6 +729,7 @@ export default function UploadSection() {
               key={entry.id}
               entry={entry}
               previousLocation={previousLocatedEntry(index)}
+              existingPhotoPoints={existingPhotoPoints}
               onUpdate={updateEntry}
               onRemove={removeEntry}
             />

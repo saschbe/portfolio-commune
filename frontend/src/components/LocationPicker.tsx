@@ -9,6 +9,7 @@ interface Props {
   lat: string;
   lng: string;
   fallbackCenter?: { lat: number; lng: number };
+  referencePoints?: ReferencePoint[];
   defaultFullscreen?: boolean;
   onFullscreenOpened?: () => void;
   onChange: (lat: string, lng: string) => void;
@@ -16,6 +17,13 @@ interface Props {
 
 type LeafletMap = InstanceType<typeof L.Map>;
 type LeafletMarker = InstanceType<typeof L.Marker>;
+type ReferencePoint = {
+  id: string;
+  title: string;
+  village: string;
+  latitude: number;
+  longitude: number;
+};
 
 function makeCyanIcon(L: typeof import("leaflet")) {
   return L.divIcon({
@@ -26,10 +34,29 @@ function makeCyanIcon(L: typeof import("leaflet")) {
   });
 }
 
+function makeReferenceIcon(L: typeof import("leaflet")) {
+  return L.divIcon({
+    html: `<div style="width:9px;height:9px;background:rgba(255,255,255,0.9);border-radius:50%;border:2px solid rgba(255,255,255,0.35);box-shadow:0 0 8px rgba(255,255,255,0.45),0 0 0 4px rgba(255,255,255,0.08)"></div>`,
+    className: "",
+    iconSize: [9, 9] as [number, number],
+    iconAnchor: [4.5, 4.5] as [number, number],
+  });
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 export default function LocationPicker({
   lat,
   lng,
   fallbackCenter,
+  referencePoints = [],
   onChange,
   defaultFullscreen,
   onFullscreenOpened,
@@ -40,7 +67,10 @@ export default function LocationPicker({
   const fullMapRef = useRef<LeafletMap | null>(null);
   const miniMarker = useRef<LeafletMarker | null>(null);
   const fullMarker = useRef<LeafletMarker | null>(null);
+  const miniReferenceMarkers = useRef<LeafletMarker[]>([]);
+  const fullReferenceMarkers = useRef<LeafletMarker[]>([]);
   const [fullscreen, setFullscreen] = useState(defaultFullscreen ?? false);
+  const [mapVersion, setMapVersion] = useState(0);
 
   const hasCoords = !isNaN(parseFloat(lat)) && !isNaN(parseFloat(lng));
   const fallbackLat = fallbackCenter?.lat ?? 50.727;
@@ -101,6 +131,7 @@ export default function LocationPicker({
         }
         onChange(clat.toFixed(6), clng.toFixed(6));
       });
+      setMapVersion((v) => v + 1);
     }
 
     init();
@@ -181,6 +212,7 @@ export default function LocationPicker({
       requestAnimationFrame(() => map.invalidateSize());
       setTimeout(() => map.invalidateSize(), 150);
       setTimeout(() => map.invalidateSize(), 500);
+      setMapVersion((v) => v + 1);
     }, 100);
 
     return () => clearTimeout(timer);
@@ -226,6 +258,53 @@ export default function LocationPicker({
     if (fullscreen) fullMapRef.current?.setView(center, 15);
   }, [fallbackCenter, fullscreen, hasCoords]);
 
+  useEffect(() => {
+    async function syncReferenceMarkers(
+      mapRef: { current: LeafletMap | null },
+      markerRef: { current: LeafletMarker[] },
+    ) {
+      const map = mapRef.current;
+      if (!map) return;
+
+      markerRef.current.forEach((marker) => marker.remove());
+      markerRef.current = [];
+
+      if (referencePoints.length === 0) return;
+
+      const L = (await import("leaflet")).default;
+      const icon = makeReferenceIcon(L);
+      markerRef.current = referencePoints.map((point) => {
+        const latStr = point.latitude.toFixed(6);
+        const lngStr = point.longitude.toFixed(6);
+        return L.marker([point.latitude, point.longitude], {
+          icon,
+          keyboard: false,
+          title: point.title,
+        })
+          .bindTooltip(
+            `<strong>${escapeHtml(point.title || "Photo existante")}</strong><br>${escapeHtml(point.village)}`,
+            { direction: "top", opacity: 0.9 },
+          )
+          .on("click", () => {
+            onChange(latStr, lngStr);
+            miniMapRef.current?.setView([point.latitude, point.longitude], 17);
+            fullMapRef.current?.setView([point.latitude, point.longitude], 17);
+          })
+          .addTo(map);
+      });
+    }
+
+    syncReferenceMarkers(miniMapRef, miniReferenceMarkers);
+    if (fullscreen) syncReferenceMarkers(fullMapRef, fullReferenceMarkers);
+
+    return () => {
+      miniReferenceMarkers.current.forEach((marker) => marker.remove());
+      miniReferenceMarkers.current = [];
+      fullReferenceMarkers.current.forEach((marker) => marker.remove());
+      fullReferenceMarkers.current = [];
+    };
+  }, [referencePoints, fullscreen, mapVersion]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Notifier le parent quand la carte s'ouvre en plein écran
   useEffect(() => {
     if (fullscreen) onFullscreenOpened?.();
@@ -235,6 +314,9 @@ export default function LocationPicker({
     <div className="space-y-1">
       <p className="text-[10px] uppercase tracking-[0.25em] text-white/30">
         Cliquez sur la carte pour placer le marqueur
+        {referencePoints.length > 0
+          ? ` - ${referencePoints.length} point${referencePoints.length > 1 ? "s" : ""} existant${referencePoints.length > 1 ? "s" : ""}`
+          : ""}
       </p>
 
       {/* Mini-carte — toujours dans le DOM */}
