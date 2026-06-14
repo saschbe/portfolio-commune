@@ -172,7 +172,7 @@ export default function ComptePage() {
     return (
       <>
         <NavBar />
-        <main className="min-h-screen bg-black text-white pt-32 px-5">
+        <main className="min-h-screen bg-black text-white pt-[calc(var(--site-header-height)_+_3rem)] px-5">
           <p className="text-white/30 uppercase tracking-[0.3em] text-xs text-center">
             Chargement…
           </p>
@@ -184,7 +184,7 @@ export default function ComptePage() {
   return (
     <>
       <NavBar />
-      <main className="min-h-screen bg-black text-white pt-28 px-5 pb-16">
+      <main className="min-h-screen bg-black text-white pt-[calc(var(--site-header-height)_+_2rem)] px-5 pb-16">
         <div className="max-w-2xl mx-auto">
           <h1 className="text-3xl font-light uppercase tracking-[0.2em] mb-2">
             Mon compte

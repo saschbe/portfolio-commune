@@ -50,7 +50,7 @@ export default function MentionsLegalesPage() {
       <NavBar />
 
       {/* ── Contenu ──────────────────────────────────────────────────────── */}
-      <div className="max-w-3xl mx-auto px-6 pt-36 pb-24">
+      <div className="max-w-3xl mx-auto px-6 pt-[calc(var(--site-header-height)_+_3rem)] pb-24">
         {/* Titre */}
         <div className="mb-16">
           <p className="text-cyan-300 text-[10px] uppercase tracking-[0.45em] mb-4">

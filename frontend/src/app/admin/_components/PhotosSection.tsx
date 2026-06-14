@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import Image from "next/image";
 import dynamic from "next/dynamic";
 import { supabase } from "@/lib/supabase";
@@ -51,6 +51,13 @@ type FormState = {
   longitude: string;
 };
 
+type PhotoFilters = {
+  search: string;
+  village: string;
+  type: string;
+  restored: "all" | "restored" | "original";
+};
+
 const defaultForm: FormState = {
   title: "",
   village: villages[0],
@@ -67,6 +74,15 @@ const inputClass =
   "w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-cyan-300/60 focus:bg-white/7 transition-all duration-200";
 const labelClass =
   "block text-xs uppercase tracking-[0.25em] text-white/50 mb-2";
+const filterSelectClass =
+  "bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-xs uppercase tracking-[0.15em] focus:outline-none focus:border-cyan-300/60 focus:bg-white/7 transition-all";
+
+const defaultFilters: PhotoFilters = {
+  search: "",
+  village: "all",
+  type: "all",
+  restored: "all",
+};
 
 export default function PhotosSection() {
   const [photos, setPhotos] = useState<Photo[]>([]);
@@ -88,6 +104,7 @@ export default function PhotosSection() {
 
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const currentUserId = useRef<string | null>(null);
+  const [filters, setFilters] = useState<PhotoFilters>(defaultFilters);
 
   useEffect(() => {
     loadPhotos();
@@ -107,6 +124,47 @@ export default function PhotosSection() {
 
   function setField<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
+  }
+
+  const photoTypes = useMemo(() => {
+    return Array.from(
+      new Set(photos.map((photo) => photo.type).filter(Boolean)),
+    ).sort((a, b) => a.localeCompare(b));
+  }, [photos]);
+
+  const filteredPhotos = useMemo(() => {
+    const search = filters.search.trim().toLowerCase();
+
+    return photos.filter((photo) => {
+      const matchesSearch =
+        search === "" ||
+        [photo.title, photo.village, photo.year, photo.type, photo.description]
+          .join(" ")
+          .toLowerCase()
+          .includes(search);
+      const matchesVillage =
+        filters.village === "all" || photo.village === filters.village;
+      const matchesType = filters.type === "all" || photo.type === filters.type;
+      const matchesRestored =
+        filters.restored === "all" ||
+        (filters.restored === "restored" && photo.restored) ||
+        (filters.restored === "original" && !photo.restored);
+
+      return matchesSearch && matchesVillage && matchesType && matchesRestored;
+    });
+  }, [photos, filters]);
+
+  const hasActiveFilters =
+    filters.search !== "" ||
+    filters.village !== "all" ||
+    filters.type !== "all" ||
+    filters.restored !== "all";
+
+  function setFilter<K extends keyof PhotoFilters>(
+    key: K,
+    value: PhotoFilters[K],
+  ) {
+    setFilters((prev) => ({ ...prev, [key]: value }));
   }
 
   async function handleAdd(e: { preventDefault(): void }) {
@@ -237,7 +295,6 @@ export default function PhotosSection() {
         .delete()
         .eq("id", photo.id)
         .select();
-      console.log("[photos] delete — response:", { data, error });
       if (error) {
         alert(`Erreur suppression : ${error.message}`);
         return;
@@ -478,6 +535,77 @@ export default function PhotosSection() {
         </div>
       )}
 
+      {!loadingPhotos && photos.length > 0 && (
+        <div className="mb-6 bg-white/2 border border-white/10 rounded-2xl p-4">
+          <div className="grid grid-cols-1 md:grid-cols-[1.5fr_1fr_1fr_1fr_auto] gap-3">
+            <input
+              type="search"
+              value={filters.search}
+              onChange={(e) => setFilter("search", e.target.value)}
+              placeholder="Rechercher une photo..."
+              className={inputClass}
+            />
+            <select
+              value={filters.village}
+              onChange={(e) => setFilter("village", e.target.value)}
+              className={filterSelectClass}
+            >
+              <option value="all" className="bg-zinc-900">
+                Tous les villages
+              </option>
+              {villages.map((v) => (
+                <option key={v} value={v} className="bg-zinc-900">
+                  {v}
+                </option>
+              ))}
+            </select>
+            <select
+              value={filters.type}
+              onChange={(e) => setFilter("type", e.target.value)}
+              className={filterSelectClass}
+            >
+              <option value="all" className="bg-zinc-900">
+                Tous les types
+              </option>
+              {photoTypes.map((type) => (
+                <option key={type} value={type} className="bg-zinc-900">
+                  {type}
+                </option>
+              ))}
+            </select>
+            <select
+              value={filters.restored}
+              onChange={(e) =>
+                setFilter("restored", e.target.value as PhotoFilters["restored"])
+              }
+              className={filterSelectClass}
+            >
+              <option value="all" className="bg-zinc-900">
+                Toutes
+              </option>
+              <option value="restored" className="bg-zinc-900">
+                RestaurÃ©es
+              </option>
+              <option value="original" className="bg-zinc-900">
+                Non restaurÃ©es
+              </option>
+            </select>
+            <button
+              type="button"
+              onClick={() => setFilters(defaultFilters)}
+              disabled={!hasActiveFilters}
+              className="px-4 py-2.5 rounded-xl border border-white/10 text-white/45 text-xs uppercase tracking-[0.15em] hover:border-white/20 hover:text-white/70 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              RÃ©initialiser
+            </button>
+          </div>
+          <p className="mt-3 text-xs uppercase tracking-[0.2em] text-white/35">
+            {filteredPhotos.length} photo{filteredPhotos.length > 1 ? "s" : ""} sur{" "}
+            {photos.length}
+          </p>
+        </div>
+      )}
+
       {/* Photos list */}
       {loadingPhotos ? (
         <p className="text-white/30 uppercase tracking-[0.3em] text-xs py-8">
@@ -487,9 +615,13 @@ export default function PhotosSection() {
         <p className="text-white/30 uppercase tracking-[0.3em] text-xs py-8">
           Aucune photo.
         </p>
+      ) : filteredPhotos.length === 0 ? (
+        <p className="text-white/30 uppercase tracking-[0.3em] text-xs py-8">
+          Aucune photo ne correspond aux filtres.
+        </p>
       ) : (
         <div className="space-y-2">
-          {photos.map((photo) => (
+          {filteredPhotos.map((photo) => (
             <div
               key={photo.id}
               className="flex items-center gap-4 bg-white/2 border border-white/10 rounded-2xl p-3 hover:border-white/20 transition-all"

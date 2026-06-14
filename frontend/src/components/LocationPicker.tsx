@@ -8,6 +8,7 @@ import type L from "leaflet";
 interface Props {
   lat: string;
   lng: string;
+  fallbackCenter?: { lat: number; lng: number };
   defaultFullscreen?: boolean;
   onFullscreenOpened?: () => void;
   onChange: (lat: string, lng: string) => void;
@@ -28,6 +29,7 @@ function makeCyanIcon(L: typeof import("leaflet")) {
 export default function LocationPicker({
   lat,
   lng,
+  fallbackCenter,
   onChange,
   defaultFullscreen,
   onFullscreenOpened,
@@ -39,6 +41,10 @@ export default function LocationPicker({
   const miniMarker = useRef<LeafletMarker | null>(null);
   const fullMarker = useRef<LeafletMarker | null>(null);
   const [fullscreen, setFullscreen] = useState(defaultFullscreen ?? false);
+
+  const hasCoords = !isNaN(parseFloat(lat)) && !isNaN(parseFloat(lng));
+  const fallbackLat = fallbackCenter?.lat ?? 50.727;
+  const fallbackLng = fallbackCenter?.lng ?? 5.958;
 
   // ── Initialiser la mini-carte ──────────────────────────────────────────────
   useEffect(() => {
@@ -54,7 +60,7 @@ export default function LocationPicker({
       const center: [number, number] =
         !isNaN(initLat) && !isNaN(initLng)
           ? [initLat, initLng]
-          : [50.727, 5.958];
+          : [fallbackLat, fallbackLng];
 
       const map = L.map(miniRef.current, {
         center,
@@ -128,7 +134,7 @@ export default function LocationPicker({
       const center: [number, number] =
         !isNaN(initLat) && !isNaN(initLng)
           ? [initLat, initLng]
-          : [50.727, 5.958];
+          : [fallbackLat, fallbackLng];
 
       const map = L.map(fullRef.current, {
         center,
@@ -212,6 +218,13 @@ export default function LocationPicker({
     sync(miniMapRef, miniMarker);
     if (fullscreen) sync(fullMapRef, fullMarker);
   }, [lat, lng]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (hasCoords || !fallbackCenter) return;
+    const center: [number, number] = [fallbackCenter.lat, fallbackCenter.lng];
+    miniMapRef.current?.setView(center, 15);
+    if (fullscreen) fullMapRef.current?.setView(center, 15);
+  }, [fallbackCenter, fullscreen, hasCoords]);
 
   // Notifier le parent quand la carte s'ouvre en plein écran
   useEffect(() => {

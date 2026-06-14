@@ -24,7 +24,15 @@ export default function NavBar() {
   const [user, setUser] = useState<User | null>(null);
   const [isPrivileged, setIsPrivileged] = useState(false);
   const [profileDisplayName, setProfileDisplayName] = useState("");
+  const headerRef = useRef<HTMLElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  async function fetchRole(userId: string) {
+    const { data } = await supabase.from("profiles")
+      .select("role, display_name").eq("id", userId).single();
+    setIsPrivileged(["admin", "moderator"].includes(data?.role ?? ""));
+    setProfileDisplayName(data?.display_name ?? "");
+  }
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -39,13 +47,6 @@ export default function NavBar() {
     return () => listener.subscription.unsubscribe();
   }, []);
 
-  async function fetchRole(userId: string) {
-    const { data } = await supabase.from("profiles")
-      .select("role, display_name").eq("id", userId).single();
-    setIsPrivileged(["admin", "moderator"].includes(data?.role ?? ""));
-    setProfileDisplayName(data?.display_name ?? "");
-  }
-
   useEffect(() => {
     function onClickOutside(e: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
@@ -54,6 +55,27 @@ export default function NavBar() {
     }
     document.addEventListener("mousedown", onClickOutside);
     return () => document.removeEventListener("mousedown", onClickOutside);
+  }, []);
+
+  useEffect(() => {
+    const header = headerRef.current;
+    if (!header) return;
+
+    const setHeaderHeight = (height: number) => {
+      document.documentElement.style.setProperty(
+        "--site-header-height",
+        `${height}px`,
+      );
+    };
+
+    setHeaderHeight(header.getBoundingClientRect().height);
+
+    const ro = new ResizeObserver(([entry]) => {
+      setHeaderHeight(entry.contentRect.height);
+    });
+    ro.observe(header);
+
+    return () => ro.disconnect();
   }, []);
 
   async function handleLogout() {
@@ -71,7 +93,7 @@ export default function NavBar() {
   const spaceLabel = isPrivileged ? "Administration" : "Mon espace";
 
   return (
-    <header className="fixed top-0 left-0 w-full z-50 backdrop-blur-xl bg-black/50 border-b border-white/10">
+    <header ref={headerRef} className="fixed top-0 left-0 w-full z-50 backdrop-blur-xl bg-black/50 border-b border-white/10">
       <div className="max-w-7xl mx-auto px-6 py-5 flex items-center justify-between gap-10">
         <Link href="/" className="shrink-0">
           <Image

@@ -124,13 +124,8 @@ export default function DashboardPage() {
         .eq("id", data.user.id)
         .single()
         .then(({ data: profile, error }) => {
-          console.log("[dashboard] profile:", profile, "error:", error);
-          if (error) {
-            console.error("[dashboard] Erreur chargement profil:", error.message, error);
-            return;
-          }
+          if (error) return;
           if (profile) {
-            console.log("[dashboard] role chargé:", profile.role);
             setRole(profile.role ?? "user");
             setNotifNewPhoto(profile.notif_new_photo ?? false);
           }
@@ -268,7 +263,7 @@ export default function DashboardPage() {
       <NavBar />
 
       {/* Main content */}
-      <main className="px-5 pt-28 pb-8 md:px-10">
+      <main className="px-5 pt-[calc(var(--site-header-height)_+_2rem)] pb-8 md:px-10">
         <div className="max-w-3xl mx-auto">
           {/* Title */}
           <div className="mb-12">
@@ -560,4 +555,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-

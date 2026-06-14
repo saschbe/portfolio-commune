@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import dynamic from "next/dynamic";
 import { supabase } from "@/lib/supabase";
-import { VILLAGES_HAMEAUX, VILLAGES } from "@/lib/villages";
+import { VILLAGES_HAMEAUX, VILLAGES, VILLAGE_CENTERS } from "@/lib/villages";
 import { logActivite } from "@/lib/logActivite";
 import { resizeImage } from "@/lib/resizeImage";
 import exifr from "exifr";
@@ -113,22 +113,23 @@ async function readExif(file: File): Promise<Partial<PhotoEntry> & { exifFields:
 
 function UploadCard({
   entry,
+  previousLocation,
   onUpdate,
   onRemove,
 }: {
   entry: PhotoEntry;
+  previousLocation?: { latitude: string; longitude: string; title: string };
   onUpdate: (id: string, patch: Partial<PhotoEntry>) => void;
   onRemove: (id: string) => void;
 }) {
   const [showMap, setShowMap] = useState(entry.showMap ?? false);
   const [openFullscreen, setOpenFullscreen] = useState(false);
 
-  useEffect(() => {
-    if (entry.showMap) setShowMap(true);
-  }, [entry.showMap]);
   const hameaux = VILLAGES_HAMEAUX[entry.village] ?? [];
   const hameauDisabled = !entry.village || hameaux.length === 0;
   const hasCoords = Boolean(entry.latitude || entry.longitude);
+  const villageCenter = entry.village ? VILLAGE_CENTERS[entry.village] : undefined;
+  const mapVisible = showMap || entry.showMap;
 
   return (
     <div className="bg-white/3 border border-white/10 rounded-2xl overflow-hidden">
@@ -270,12 +271,28 @@ function UploadCard({
             </span>
           </button>
 
-          {showMap && (
+          {mapVisible && (
             <div className="mt-2">
+              {previousLocation && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowMap(true);
+                    onUpdate(entry.id, {
+                      latitude: previousLocation.latitude,
+                      longitude: previousLocation.longitude,
+                    });
+                  }}
+                  className="mb-2 w-full rounded-lg border border-cyan-300/20 bg-cyan-300/5 px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-cyan-300/70 transition-colors hover:border-cyan-300/35 hover:bg-cyan-300/10 hover:text-cyan-300"
+                >
+                  Copier les points de la photo précédente
+                </button>
+              )}
               <div className="[&_.leaflet-container]:h-36">
                 <LocationPicker
                   lat={entry.latitude}
                   lng={entry.longitude}
+                  fallbackCenter={villageCenter}
                   onChange={(lat, lng) =>
                     onUpdate(entry.id, { latitude: lat, longitude: lng })
                   }
@@ -412,6 +429,20 @@ export default function UploadSection() {
       if (entry) URL.revokeObjectURL(entry.previewUrl);
       return prev.filter((e) => e.id !== id);
     });
+  }
+
+  function previousLocatedEntry(index: number) {
+    for (let i = index - 1; i >= 0; i -= 1) {
+      const entry = entries[i];
+      if (entry.latitude && entry.longitude) {
+        return {
+          latitude: entry.latitude,
+          longitude: entry.longitude,
+          title: entry.title,
+        };
+      }
+    }
+    return undefined;
   }
 
   // ── Upload ────────────────────────────────────────────────────────────────
@@ -644,10 +675,11 @@ export default function UploadSection() {
       {/* ── Grille de cartes ───────────────────────────────────────────── */}
       {entries.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {entries.map((entry) => (
+          {entries.map((entry, index) => (
             <UploadCard
               key={entry.id}
               entry={entry}
+              previousLocation={previousLocatedEntry(index)}
               onUpdate={updateEntry}
               onRemove={removeEntry}
             />

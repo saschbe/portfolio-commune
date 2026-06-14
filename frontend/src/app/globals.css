@@ -3,6 +3,8 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --site-header-height: 80px;
+  --photo-header-height: 70px;
 }
 
 @theme inline {
@@ -48,6 +50,31 @@ body {
 .scrollbar-hide {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+.scrollbar-subtle {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+}
+
+.scrollbar-subtle::-webkit-scrollbar {
+  width: 8px;
+}
+
+.scrollbar-subtle::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-subtle::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.scrollbar-subtle::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.26);
+  background-clip: padding-box;
 }
 
 @keyframes fadeInUp {
@@ -146,4 +173,41 @@ input[type="number"]::-webkit-outer-spin-button {
 input[type="number"] {
   -moz-appearance: textfield;
   appearance: textfield;
+}
+
+@media (orientation: landscape) and (max-height: 520px) and (pointer: coarse) {
+  .photo-lightbox-controls {
+    top: 0.5rem;
+    gap: 0.25rem;
+    padding: 0.25rem;
+  }
+
+  .photo-lightbox-controls button {
+    height: 2rem;
+    min-width: 2rem;
+  }
+
+  .photo-lightbox-controls span {
+    width: 3rem;
+  }
+
+  .photo-lightbox-close {
+    top: 0.5rem;
+    right: 0.5rem;
+    width: 2.25rem;
+    height: 2.25rem;
+  }
+
+  .photo-lightbox-stage {
+    padding: 2.75rem 3.25rem 0.75rem;
+  }
+
+  .photo-lightbox-image {
+    max-width: calc(100vw - 6.5rem) !important;
+    max-height: calc(100dvh - 3.5rem) !important;
+  }
+
+  .photo-lightbox-hint {
+    display: none;
+  }
 }

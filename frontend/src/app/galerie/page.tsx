@@ -55,12 +55,86 @@ const VILLAGES_HAMEAUX: Record<string, string[]> = {
 };
 const VILLAGES = Object.keys(VILLAGES_HAMEAUX);
 
-const ASPECTS = [
-  "aspect-[4/3]",
-  "aspect-[3/4]",
-  "aspect-[16/9]",
-  "aspect-square",
-  "aspect-[3/5]",
+const GALLERY_ASPECT = "aspect-[4/5]";
+
+type GalleryView = "current" | "small" | "tiny";
+
+const GALLERY_VIEWS: {
+  value: GalleryView;
+  label: string;
+  iconColumns: number;
+  columns: string;
+  skeletonColumns: string;
+  gap: string;
+  cardMargin: string;
+  imageSizes: string;
+  padding: string;
+  metaClass: string;
+  titleClass: string;
+  typeClass: string;
+  badgeClass: string;
+  reportClass: string;
+}[] = [
+  {
+    value: "current",
+    label: "Actuel",
+    iconColumns: 1,
+    columns: "columns-1 sm:columns-2 lg:columns-3 2xl:columns-4",
+    skeletonColumns: "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4",
+    gap: "gap-x-4",
+    cardMargin: "mb-4",
+    imageSizes:
+      "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1536px) 33vw, 25vw",
+    padding: "p-4",
+    metaClass:
+      "mb-2 flex items-center gap-2 text-[9px] uppercase tracking-[0.22em] text-cyan-300/80",
+    titleClass:
+      "text-sm font-light uppercase tracking-[0.12em] leading-snug line-clamp-2 text-white",
+    typeClass: "mt-2 line-clamp-1 text-xs text-white/40",
+    badgeClass:
+      "right-3 top-3 px-2 py-1 text-[8px] tracking-[0.22em]",
+    reportClass: "left-3 top-3 p-2",
+  },
+  {
+    value: "small",
+    label: "Petit",
+    iconColumns: 2,
+    columns: "columns-2 sm:columns-3 lg:columns-4 2xl:columns-6",
+    skeletonColumns: "grid-cols-2 sm:grid-cols-3 lg:grid-cols-6",
+    gap: "gap-x-3",
+    cardMargin: "mb-3",
+    imageSizes:
+      "(max-width: 640px) 50vw, (max-width: 1024px) 33vw, (max-width: 1536px) 25vw, 17vw",
+    padding: "p-3",
+    metaClass:
+      "mb-1.5 flex items-center gap-1.5 text-[8px] uppercase tracking-[0.18em] text-cyan-300/80",
+    titleClass:
+      "text-[12px] font-light uppercase tracking-[0.1em] leading-snug line-clamp-2 text-white",
+    typeClass: "mt-1.5 line-clamp-1 text-[10px] text-white/40",
+    badgeClass:
+      "right-2 top-2 px-1.5 py-0.5 text-[7px] tracking-[0.16em]",
+    reportClass: "left-2 top-2 p-1.5",
+  },
+  {
+    value: "tiny",
+    label: "Très petit",
+    iconColumns: 3,
+    columns: "columns-3 sm:columns-4 lg:columns-6 2xl:columns-8",
+    skeletonColumns: "grid-cols-3 sm:grid-cols-4 lg:grid-cols-8",
+    gap: "gap-x-1.5 sm:gap-x-2",
+    cardMargin: "mb-1.5 sm:mb-2",
+    imageSizes:
+      "(max-width: 640px) 50vw, (max-width: 1024px) 25vw, (max-width: 1536px) 17vw, 13vw",
+    padding: "p-1.5 sm:p-2",
+    metaClass:
+      "mb-1 flex items-center gap-1 text-[7px] uppercase tracking-[0.14em] text-cyan-300/80",
+    titleClass:
+      "text-[10px] font-light uppercase tracking-[0.08em] leading-tight line-clamp-2 text-white",
+    typeClass: "hidden",
+    badgeClass:
+      "right-1.5 top-1.5 px-1.5 py-0.5 text-[6px] tracking-[0.12em]",
+    reportClass: "left-1.5 top-1.5 p-1",
+  },
 ];
 
 // ── Icônes ────────────────────────────────────────────────────────────────────
@@ -102,6 +176,20 @@ function FlagIcon() {
   );
 }
 
+function GalleryViewIcon({ columns }: { columns: number }) {
+  return (
+    <span
+      className="grid h-4 w-4 gap-0.5"
+      style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
+      aria-hidden="true"
+    >
+      {Array.from({ length: columns * 2 }).map((_, index) => (
+        <span key={index} className="rounded-[1px] bg-current" />
+      ))}
+    </span>
+  );
+}
+
 const RAISONS: { value: string; label: string }[] = [
   { value: "personne_non_consentante", label: "Personne non consentante" },
   { value: "informations_incorrectes", label: "Informations incorrectes" },
@@ -124,26 +212,10 @@ function GalerieContent() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [headerH, setHeaderH] = useState(80);
-
   // Panneau filtres
   // Ouvert par défaut sur desktop (lg+), fermé sur mobile/tablet
   const [panelOpen, setPanelOpen] = useState(false);
 
-  // Ouvrir par défaut sur desktop après le mount (évite mismatch SSR)
-  useEffect(() => {
-    if (window.innerWidth >= 1024) setPanelOpen(true);
-  }, []);
-
-  useEffect(() => {
-    const header = document.querySelector("header");
-    if (!header) return;
-    const ro = new ResizeObserver(([entry]) => {
-      setHeaderH(entry.contentRect.height);
-    });
-    ro.observe(header);
-    return () => ro.disconnect();
-  }, []);
   const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([]);
   const [searchValues, setSearchValues] = useState<Record<string, string>>({});
   const [suggestions, setSuggestions] = useState<Record<string, string[]>>({});
@@ -176,6 +248,9 @@ function GalerieContent() {
     string | null
   >(null);
   const reportTurnstileRef = useRef<TurnstileInstance>(null);
+  const decadeMenuRef = useRef<HTMLDivElement>(null);
+  const [decadeMenuOpen, setDecadeMenuOpen] = useState(false);
+  const [galleryView, setGalleryView] = useState<GalleryView>("current");
 
   // ── Auth ────────────────────────────────────────────────────────────────────
 
@@ -212,12 +287,30 @@ function GalerieContent() {
           closeReport();
           return;
         }
+        if (decadeMenuOpen) {
+          setDecadeMenuOpen(false);
+          return;
+        }
         if (panelOpen) setPanelOpen(false);
       }
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [panelOpen, reportingPhoto]);
+  }, [decadeMenuOpen, panelOpen, reportingPhoto]);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (
+        decadeMenuRef.current &&
+        !decadeMenuRef.current.contains(e.target as Node)
+      ) {
+        setDecadeMenuOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   function openReport(photo: Photo, e?: React.MouseEvent) {
     e?.stopPropagation();
@@ -273,7 +366,7 @@ function GalerieContent() {
       return;
     }
 
-    const { data: insertData, error } = await supabase
+    const { error } = await supabase
       .from("signalements")
       .insert({
         photo_id: reportingPhoto.id,
@@ -281,37 +374,21 @@ function GalerieContent() {
         details: reportPrecision.trim() || null,
         email: reportEmail.trim() || null,
         user_id: user!.id,
-      })
-      .select();
-    console.log("[signalement] insert →", {
-      data: insertData,
-      error,
-      errorJson: JSON.stringify(error),
-    });
+      });
     if (!error) {
       supabase
         .from("photos")
         .update({ status: "signaled" })
-        .eq("id", reportingPhoto.id)
-        .then(({ error: e }) =>
-          console.log("[signalement] photo signaled →", e ?? "ok"),
-        );
-      const FUNCTIONS_URL =
-        "https://fjglbztexnntivdrjhbv.supabase.co/functions/v1";
-      const ANON_KEY = "sb_publishable_xMlW5BYoriE-iDe8JsLq1Q_lU3Pcjwj";
-      const ANON_JWT =
-        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZqZ2xienRleG5udGl2ZHJqaGJ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgyNzE1NzksImV4cCI6MjA2Mzg0NzU3OX0.vIyVPvgSEDRtDmOEsGKMELMxJ6F9_h5DGT9KFTnMGGU";
+        .eq("id", reportingPhoto.id);
+      const FUNCTIONS_URL = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1`;
+      const ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
       const authHeaders = {
         "Content-Type": "application/json",
         apikey: ANON_KEY,
         Authorization: `Bearer ${ANON_KEY}`,
       };
-      const reporterHeaders = {
-        "Content-Type": "application/json",
-        apikey: ANON_JWT,
-        Authorization: `Bearer ${ANON_JWT}`,
-      };
+      const reporterHeaders = authHeaders;
 
       fetch(`${FUNCTIONS_URL}/notify-new-photo`, {
         method: "POST",
@@ -319,17 +396,7 @@ function GalerieContent() {
         body: JSON.stringify({
           photo: { title: "Signalement reçu", village: reportRaison },
         }),
-      })
-        .then(async (res) =>
-          console.log(
-            "[signalement] notify-admin →",
-            res.status,
-            await res.text(),
-          ),
-        )
-        .catch((err) =>
-          console.error("[signalement] notify-admin error →", err),
-        );
+      }).catch(() => {});
 
       if (reportEmail.trim()) {
         fetch(`${FUNCTIONS_URL}/notify-reporter`, {
@@ -340,17 +407,7 @@ function GalerieContent() {
             photoTitle: reportingPhoto.title,
             raison: reportRaison,
           }),
-        })
-          .then(async (res) =>
-            console.log(
-              "[signalement] notify-reporter →",
-              res.status,
-              await res.text(),
-            ),
-          )
-          .catch((err) =>
-            console.error("[signalement] notify-reporter error →", err),
-          );
+        }).catch(() => {});
       }
     }
     setReportLoading(false);
@@ -512,7 +569,7 @@ function GalerieContent() {
     return Array.from(groups.entries()).sort((a, b) => {
       if (a[0] === null) return 1;
       if (b[0] === null) return -1;
-      return b[0]! - a[0]!;
+      return a[0]! - b[0]!;
     });
   }, [filteredPhotos]);
 
@@ -523,6 +580,57 @@ function GalerieContent() {
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
+  const restoredCount = useMemo(
+    () => filteredPhotos.filter((photo) => photo.restored).length,
+    [filteredPhotos],
+  );
+
+  const hasActiveFilters = totalActiveFilters > 0;
+  const galleryViewConfig =
+    GALLERY_VIEWS.find((view) => view.value === galleryView) ??
+    GALLERY_VIEWS[0];
+
+  function resetFilters() {
+    setActiveFilters([]);
+    setFilterRestaureeOui(false);
+    setFilterRestaureeNon(false);
+    setSelectedVillages([]);
+    setSelectedHameau(null);
+    setYearFrom("");
+    setYearTo("");
+  }
+
+  function photoHref(photoId: string) {
+    const p = new URLSearchParams({ from: "galerie" });
+    p.set("ids", orderedIds.join(","));
+    if (selectedVillages.length > 0) p.set("village", selectedVillages.join(","));
+    if (selectedHameau) p.set("hameau", selectedHameau);
+    return `/photo/${photoId}?${p.toString()}`;
+  }
+
+  function decadeSectionId(decade: number | null) {
+    return decade === null ? "decade-sans-date" : `decade-${decade}`;
+  }
+
+  function scrollToDecade(decade: number | null) {
+    const target = document.getElementById(decadeSectionId(decade));
+    if (!target) return;
+
+    const headerHeight = parseFloat(
+      getComputedStyle(document.documentElement).getPropertyValue(
+        "--site-header-height",
+      ),
+    );
+    const top =
+      target.getBoundingClientRect().top +
+      window.scrollY -
+      (Number.isNaN(headerHeight) ? 80 : headerHeight) -
+      24;
+
+    window.scrollTo({ top, behavior: "smooth" });
+    setDecadeMenuOpen(false);
+  }
+
   return (
     <div className="min-h-screen bg-black text-white">
       <NavBar />
@@ -530,7 +638,11 @@ function GalerieContent() {
       {/* Bouton Filtres flottant */}
       <button
         onClick={() => setPanelOpen(true)}
-        className={`fixed top-24 left-6 z-30 flex items-center gap-2 px-4 py-2 rounded-full border text-[10px] uppercase tracking-[0.25em] backdrop-blur-md transition-all duration-300 ${
+        style={{
+          top: "calc(var(--site-header-height) + 0.5rem)",
+          right: "max(1.5rem, calc((100vw - 80rem) / 2 + 1.5rem))",
+        }}
+        className={`fixed z-30 flex items-center gap-2 px-4 py-2 rounded-full border text-[10px] uppercase tracking-[0.25em] backdrop-blur-md transition-all duration-300 ${
           totalActiveFilters > 0
             ? "bg-cyan-300/10 border-cyan-300/40 text-cyan-300 hover:bg-cyan-300/20 hover:border-cyan-300/70"
             : "border-white/20 bg-white/5 text-white/70 hover:bg-white/10 hover:border-white/40"
@@ -546,41 +658,109 @@ function GalerieContent() {
       </button>
 
       {/* ── Contenu ──────────────────────────────────────────────────────── */}
-      <div className="max-w-7xl mx-auto px-6 pt-36 pb-12">
+      <div className="max-w-7xl mx-auto px-6 pt-[calc(var(--site-header-height)_+_1.5rem)] pb-12">
         {/* Titre */}
-        <div className="mb-10">
-          <h1 className="text-3xl md:text-5xl font-light uppercase tracking-[0.15em] leading-[1.2]">
-            Galerie
-          </h1>
-          {!loading && (
-            <p className="mt-2 text-sm uppercase tracking-[0.2em] tabular-nums">
-              {totalActiveFilters > 0 ? (
-                <span>
-                  <span className="text-cyan-300 font-medium">{filteredPhotos.length}</span>
-                  <span className="text-white/30"> / {photos.length} photos</span>
-                </span>
-              ) : (
-                <span className="text-white/50">{photos.length} photos</span>
-              )}
-            </p>
-          )}
+        <div className="mb-6 border-b border-white/10 pb-5">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
+            <div className="max-w-xl">
+              <p className="mb-2 text-[9px] uppercase tracking-[0.35em] text-cyan-300">
+                Archives visuelles
+              </p>
+              <h1 className="text-3xl md:text-4xl font-light uppercase tracking-[0.1em] leading-none">
+                Galerie
+              </h1>
+              <p className="mt-2 max-w-lg text-[13px] leading-relaxed text-white/45">
+                Mémoire photographique de Plombières et de ses villages,
+                rassemblée par décennies et enrichie au fil des contributions.
+              </p>
+            </div>
+
+            {!loading && (
+              <div className="grid grid-cols-3 gap-2.5 sm:min-w-[25rem] lg:self-center">
+                <div className="border border-white/10 bg-white/4 px-3.5 py-2">
+                  <p className="text-lg font-light tabular-nums text-white">
+                    {hasActiveFilters ? filteredPhotos.length : photos.length}
+                  </p>
+                  <p className="mt-0.5 text-[7px] uppercase tracking-[0.22em] text-white/35">
+                    visibles
+                  </p>
+                </div>
+                <div ref={decadeMenuRef} className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setDecadeMenuOpen((open) => !open)}
+                    aria-expanded={decadeMenuOpen}
+                    aria-label="Ouvrir la liste des décennies"
+                    className={`w-full cursor-pointer border px-3.5 py-2 text-left transition-all duration-200 ${
+                      decadeMenuOpen
+                        ? "border-cyan-300/45 bg-cyan-300/8 shadow-[0_0_0_1px_rgba(34,211,238,0.15)]"
+                        : "border-white/10 bg-white/4 hover:border-cyan-300/30 hover:bg-white/6"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-lg font-light tabular-nums text-cyan-300">
+                          {photosByDecade.length}
+                        </p>
+                        <p className="mt-0.5 text-[7px] uppercase tracking-[0.22em] text-white/35">
+                          décennies
+                        </p>
+                      </div>
+                      <span
+                        className={`mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full border text-[10px] transition-all ${
+                          decadeMenuOpen
+                            ? "border-cyan-300/35 bg-cyan-300/12 text-cyan-300"
+                            : "border-white/10 bg-black/20 text-white/45"
+                        }`}
+                      >
+                        {decadeMenuOpen ? "−" : "+"}
+                      </span>
+                    </div>
+                  </button>
+
+                  {decadeMenuOpen && (
+                    <div className="scrollbar-subtle absolute top-full left-0 mt-2 z-40 max-h-72 w-full overflow-y-auto border border-white/10 bg-zinc-950 shadow-[0_16px_50px_rgba(0,0,0,0.65)]">
+                      {photosByDecade.map(([decade, decadePhotos]) => (
+                        <button
+                          key={decade ?? "sans-date"}
+                          type="button"
+                          onClick={() => scrollToDecade(decade)}
+                          className="flex w-full items-center justify-between px-4 py-3 text-left transition-colors hover:bg-white/5"
+                        >
+                          <span className="text-[10px] uppercase tracking-[0.25em] text-white/70">
+                            {decade === null ? "Sans date" : `Années ${decade}`}
+                          </span>
+                          <span className="text-[10px] uppercase tracking-[0.2em] text-cyan-300/80">
+                            {decadePhotos.length}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="border border-white/10 bg-white/4 px-3.5 py-2">
+                  <p className="text-lg font-light tabular-nums text-amber-200">
+                    {restoredCount}
+                  </p>
+                  <p className="mt-0.5 text-[7px] uppercase tracking-[0.22em] text-white/35">
+                    restaurées
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Barre filtres actifs */}
-        {totalActiveFilters > 0 && (
-          <div className="flex flex-col gap-3 mb-10">
-            <div className="flex items-center gap-4">
+        {hasActiveFilters && (
+          <div className="mb-12 flex flex-col gap-4 border-l border-cyan-300/30 pl-4">
+            <div className="flex items-center justify-between gap-4">
+              <p className="text-[10px] uppercase tracking-[0.35em] text-white/35">
+                Sélection active
+              </p>
               <button
-                onClick={() => {
-                  setActiveFilters([]);
-                  setFilterRestaureeOui(false);
-                  setFilterRestaureeNon(false);
-                  setSelectedVillages([]);
-                  setSelectedHameau(null);
-                  setYearFrom("");
-                  setYearTo("");
-                }}
-                className="text-[10px] uppercase tracking-[0.25em] text-white/30 hover:text-white/60 transition-colors"
+                onClick={resetFilters}
+                className="text-[10px] uppercase tracking-[0.25em] text-white/30 hover:text-white/70 transition-colors"
               >
                 Tout effacer
               </button>
@@ -661,27 +841,49 @@ function GalerieContent() {
           </div>
         )}
 
+        <div className="mb-6 flex justify-end">
+          <div className="inline-flex rounded-full border border-white/10 bg-white/4 p-1">
+            {GALLERY_VIEWS.map((view) => {
+              const active = galleryView === view.value;
+              return (
+                <button
+                  key={view.value}
+                  type="button"
+                  onClick={() => setGalleryView(view.value)}
+                  aria-pressed={active}
+                  aria-label={`Vue ${view.label}`}
+                  title={`Vue ${view.label}`}
+                  className={`flex h-9 w-9 items-center justify-center rounded-full transition-all duration-200 ${
+                    active
+                      ? "bg-cyan-300/15 text-cyan-300 shadow-[0_0_0_1px_rgba(34,211,238,0.25)]"
+                      : "text-white/45 hover:bg-white/6 hover:text-white/75"
+                  }`}
+                >
+                  <GalleryViewIcon columns={view.iconColumns} />
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         {/* Galerie masonry */}
         {loading ? (
-          <p className="text-center text-white/30 uppercase tracking-[0.35em] text-xs py-24">
-            Chargement…
-          </p>
+          <div className={`grid ${galleryViewConfig.skeletonColumns} gap-4`}>
+            {Array.from({ length: 12 }).map((_, i) => (
+              <div
+                key={i}
+                className={`${GALLERY_ASPECT} animate-pulse bg-white/5 border border-white/8`}
+              />
+            ))}
+          </div>
         ) : filteredPhotos.length === 0 ? (
-          <div className="text-center py-28 border border-white/5 rounded-3xl">
-            <p className="text-white/20 uppercase tracking-[0.35em] text-xs mb-4">
+          <div className="flex min-h-80 flex-col items-center justify-center border border-white/8 bg-white/3 px-6 text-center">
+            <p className="text-white/25 uppercase tracking-[0.35em] text-xs mb-4">
               Aucune photo
             </p>
-            {totalActiveFilters > 0 && (
+            {hasActiveFilters && (
               <button
-                onClick={() => {
-                  setActiveFilters([]);
-                  setFilterRestaureeOui(false);
-                  setFilterRestaureeNon(false);
-                  setSelectedVillages([]);
-                  setSelectedHameau(null);
-                  setYearFrom("");
-                  setYearTo("");
-                }}
+                onClick={resetFilters}
                 className="text-cyan-300/50 hover:text-cyan-300 text-[10px] uppercase tracking-[0.25em] transition-colors"
               >
                 Effacer les filtres →
@@ -691,7 +893,10 @@ function GalerieContent() {
         ) : (
           <div className="space-y-16">
             {photosByDecade.map(([decade, decadePhotos]) => (
-              <section key={decade ?? "sans-date"}>
+              <section
+                key={decade ?? "sans-date"}
+                id={decadeSectionId(decade)}
+              >
                 <div className="flex items-baseline gap-4 mb-6 pb-3 border-b border-white/10">
                   <h3 className="text-cyan-300 text-xl md:text-2xl font-light uppercase tracking-[0.3em]">
                     {decade === null ? "Sans date" : `Années ${decade}`}
@@ -702,44 +907,54 @@ function GalerieContent() {
                   </span>
                 </div>
 
-                <div className="columns-3 md:columns-4 xl:columns-6 gap-x-2">
-                  {decadePhotos.map((photo, index) => (
+                <div
+                  className={`${galleryViewConfig.columns} ${galleryViewConfig.gap}`}
+                >
+                  {decadePhotos.map((photo) => (
                     <Link
                       key={photo.id}
-                      href={(() => {
-                        const p = new URLSearchParams({ from: "galerie" });
-                        p.set("ids", orderedIds.join(","));
-                        if (selectedVillages.length > 0)
-                          p.set("village", selectedVillages.join(","));
-                        if (selectedHameau) p.set("hameau", selectedHameau);
-                        return `/photo/${photo.id}?${p.toString()}`;
-                      })()}
-                      className="block break-inside-avoid mb-2 group relative overflow-hidden rounded-2xl border border-white/10 bg-white/3 backdrop-blur-md transition-all duration-500 hover:-translate-y-0.5 hover:border-cyan-300/30 hover:shadow-[0_10px_40px_rgba(34,211,238,0.10)]"
+                      href={photoHref(photo.id)}
+                      className={`group relative ${galleryViewConfig.cardMargin} block break-inside-avoid overflow-hidden border border-white/10 bg-zinc-950 transition-all duration-500 hover:-translate-y-1 hover:border-cyan-300/35 hover:shadow-[0_18px_60px_rgba(34,211,238,0.12)]`}
                     >
-                      <div className="relative aspect-square">
+                      <div className={`relative ${GALLERY_ASPECT}`}>
                         <Image
                           src={imageUrl(photo.src, "thumb")}
                           alt={photo.title}
                           fill
-                          sizes="(max-width: 768px) 33vw, (max-width: 1280px) 25vw, 16vw"
+                          sizes={galleryViewConfig.imageSizes}
                           loading="lazy"
                           className="object-cover transition-all duration-1000 ease-out group-hover:scale-105 group-hover:brightness-110"
                         />
-                        <div className="absolute inset-0 bg-linear-to-t from-black/85 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                        <div className="absolute inset-0 bg-linear-to-t from-black/90 via-black/10 to-transparent opacity-75 transition-opacity duration-500 group-hover:opacity-95" />
                       </div>
-                      <div className="absolute bottom-0 left-0 w-full p-2 opacity-0 group-hover:opacity-100 transition-opacity duration-500">
-                        <h4 className="text-[10px] font-light uppercase tracking-widest leading-tight line-clamp-2">
+                      <div
+                        className={`absolute bottom-0 left-0 w-full ${galleryViewConfig.padding}`}
+                      >
+                        <div className={galleryViewConfig.metaClass}>
+                          <span>{photo.village}</span>
+                          {photo.year && (
+                            <>
+                              <span className="text-white/25">/</span>
+                              <span className="text-white/50">{photo.year}</span>
+                            </>
+                          )}
+                        </div>
+                        <h4 className={galleryViewConfig.titleClass}>
                           {photo.title}
                         </h4>
-                        <p className="text-cyan-300 text-[8px] uppercase tracking-[0.2em] mt-1">
-                          {photo.village} · {photo.year}
-                        </p>
+                        {photo.type && (
+                          <p className={galleryViewConfig.typeClass}>
+                            {photo.type}
+                          </p>
+                        )}
                       </div>
                       {photo.restored && (
-                        <div
-                          className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-cyan-300 shadow-[0_0_8px_rgba(34,211,238,0.6)]"
+                        <span
+                          className={`absolute border border-amber-200/30 bg-black/55 uppercase text-amber-200 backdrop-blur-md ${galleryViewConfig.badgeClass}`}
                           title="Restaurée"
-                        />
+                        >
+                          Restaurée
+                        </span>
                       )}
                       <button
                         onClick={(e) => {
@@ -747,7 +962,7 @@ function GalerieContent() {
                           openReport(photo, e);
                         }}
                         aria-label="Signaler cette photo"
-                        className="absolute top-1.5 left-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 p-1 rounded-full bg-black/60 backdrop-blur-sm text-white/40 hover:text-red-400"
+                        className={`absolute opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-black/60 backdrop-blur-sm text-white/45 hover:text-red-400 ${galleryViewConfig.reportClass}`}
                       >
                         <FlagIcon />
                       </button>
@@ -765,7 +980,7 @@ function GalerieContent() {
       {/* Backdrop */}
       {panelOpen && (
         <div
-          style={{ top: headerH }}
+          style={{ top: "var(--site-header-height)" }}
           className="fixed inset-x-0 bottom-0 z-30 bg-black/60 backdrop-blur-sm"
           onClick={() => setPanelOpen(false)}
         />
@@ -773,7 +988,10 @@ function GalerieContent() {
 
       {/* Panneau latéral */}
       <div
-        style={{ top: headerH, height: `calc(100vh - ${headerH}px)` }}
+        style={{
+          top: "var(--site-header-height)",
+          height: "calc(100vh - var(--site-header-height))",
+        }}
         className={`fixed left-0 overflow-hidden z-40 w-80 bg-zinc-950 border-r border-white/10 flex flex-col shadow-[4px_0_40px_rgba(0,0,0,0.6)] transition-transform duration-300 ease-out ${panelOpen ? "translate-x-0" : "-translate-x-full"}`}
       >
         {/* En-tête panneau */}

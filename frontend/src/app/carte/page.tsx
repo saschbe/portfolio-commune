@@ -90,23 +90,8 @@ function FilterIcon() {
 // ── Page ───────────────────────────────────────────────────────────────────────
 
 export default function CartePage() {
-  const [headerH, setHeaderH] = useState(80);
-
-  useEffect(() => {
-    const header = document.querySelector("header");
-    if (!header) return;
-    const ro = new ResizeObserver(([entry]) => {
-      setHeaderH(entry.contentRect.height);
-    });
-    ro.observe(header);
-    return () => ro.disconnect();
-  }, []);
-
   // Panneau filtres — ouvert par défaut sur desktop
   const [panelOpen, setPanelOpen] = useState(false);
-  useEffect(() => {
-    if (window.innerWidth >= 1024) setPanelOpen(true);
-  }, []);
 
   // Données
   const [photos, setPhotos] = useState<Photo[]>([]);
@@ -346,7 +331,8 @@ export default function CartePage() {
       {/* Bouton Filtres flottant */}
       <button
         onClick={() => setPanelOpen(true)}
-        className={`fixed top-24 left-6 z-9999 flex items-center gap-2 px-4 py-2 rounded-full border text-[10px] uppercase tracking-[0.25em] backdrop-blur-md transition-all duration-300 ${
+        style={{ top: "calc(var(--site-header-height) + 1rem)" }}
+        className={`fixed left-6 z-9999 flex items-center gap-2 px-4 py-2 rounded-full border text-[10px] uppercase tracking-[0.25em] backdrop-blur-md transition-all duration-300 ${
           totalActiveFilters > 0
             ? "bg-cyan-300/10 border-cyan-300/40 text-cyan-300 hover:bg-cyan-300/20 hover:border-cyan-300/70"
             : "border-white/20 bg-white/5 text-white/70 hover:bg-white/10 hover:border-white/40"
@@ -381,7 +367,7 @@ export default function CartePage() {
       {/* Backdrop */}
       {panelOpen && (
         <div
-          style={{ top: headerH }}
+          style={{ top: "var(--site-header-height)" }}
           className="fixed inset-x-0 bottom-0 z-600 bg-black/60 backdrop-blur-sm"
           onClick={() => setPanelOpen(false)}
         />
@@ -389,7 +375,10 @@ export default function CartePage() {
 
       {/* Panneau filtres */}
       <div
-        style={{ top: headerH, height: `calc(100vh - ${headerH}px)` }}
+        style={{
+          top: "var(--site-header-height)",
+          height: "calc(100vh - var(--site-header-height))",
+        }}
         className={`fixed left-0 overflow-hidden z-700 w-80 bg-zinc-950 border-r border-white/10 flex flex-col shadow-[4px_0_40px_rgba(0,0,0,0.6)] transition-transform duration-300 ease-out ${panelOpen ? "translate-x-0" : "-translate-x-full"}`}
       >
         {/* En-tête panneau */}

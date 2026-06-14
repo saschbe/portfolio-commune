@@ -223,7 +223,10 @@ export default function MapClient({ photos, lieux }: Props) {
   return (
     <div className="relative w-full h-full">
       <div ref={containerRef} className="w-full h-full" />
-      <div className="absolute top-20 right-4 z-500 flex rounded-full overflow-hidden border border-white/20 bg-black/80 backdrop-blur-md shadow-lg">
+      <div
+        style={{ top: "calc(var(--site-header-height) + 1rem)" }}
+        className="absolute right-4 z-[800] flex rounded-full overflow-hidden border border-white/20 bg-black/80 backdrop-blur-md shadow-lg"
+      >
         <button
           onClick={() => setMapStyle("dark")}
           className={`px-4 py-2 text-[10px] uppercase tracking-[0.2em] transition-all ${

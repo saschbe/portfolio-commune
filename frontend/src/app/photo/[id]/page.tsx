@@ -183,7 +183,18 @@ function PhotoContent() {
 
   // Zoom lightbox
   const [zoomed, setZoomed] = useState(false);
+  const [zoomScale, setZoomScale] = useState(1);
+  const [zoomPan, setZoomPan] = useState({ x: 0, y: 0 });
+  const headerRef = useRef<HTMLElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
+  const zoomDragRef = useRef({
+    active: false,
+    moved: false,
+    startX: 0,
+    startY: 0,
+    originX: 0,
+    originY: 0,
+  });
 
   // Report modal
   const [reportOpen, setReportOpen] = useState(false);
@@ -201,20 +212,46 @@ function PhotoContent() {
   const touchStartY = useRef(0);
   const swipeHappened = useRef(false);
 
+  const resetZoom = useCallback(() => {
+    setZoomScale(1);
+    setZoomPan({ x: 0, y: 0 });
+  }, []);
+
+  const closeZoom = useCallback(() => {
+    setZoomed(false);
+    resetZoom();
+  }, [resetZoom]);
+
+  const openZoom = useCallback(() => {
+    resetZoom();
+    setZoomed(true);
+  }, [resetZoom]);
+
+  const changeZoom = useCallback((delta: number) => {
+    setZoomScale((current) => {
+      const next = Math.min(4, Math.max(1, Number((current + delta).toFixed(2))));
+      if (next === 1) setZoomPan({ x: 0, y: 0 });
+      return next;
+    });
+  }, []);
+
   // ── Navigate without page reload (mobile swipe) ───────────────────────────
 
-  const navigateTo = useCallback((targetId: string, dir: "left" | "right") => {
-    setSlideDir(dir);
-    setTimeout(() => {
-      setCurrentId(targetId);
-      setSlideDir(null);
-      window.history.replaceState(
-        null,
-        "",
-        `/photo/${targetId}${contextSearch}`,
-      );
-    }, 180);
-  }, []);
+  const navigateTo = useCallback(
+    (targetId: string, dir: "left" | "right") => {
+      setSlideDir(dir);
+      setTimeout(() => {
+        setCurrentId(targetId);
+        setSlideDir(null);
+        window.history.replaceState(
+          null,
+          "",
+          `/photo/${targetId}${contextSearch}`,
+        );
+      }, 180);
+    },
+    [contextSearch],
+  );
 
   // ── Sync currentId when URL id changes (Link clicks, browser back) ────────
 
@@ -228,13 +265,19 @@ function PhotoContent() {
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") {
         if (zoomed) {
-          setZoomed(false);
+          closeZoom();
           return;
         }
         if (reportOpen) {
           closeReport();
           return;
         }
+      }
+      if (zoomed) {
+        if (e.key === "+" || e.key === "=") changeZoom(0.5);
+        if (e.key === "-") changeZoom(-0.5);
+        if (e.key === "0") resetZoom();
+        return;
       }
       if (!zoomed && !reportOpen) {
         const idx = navIds.indexOf(currentId);
@@ -246,7 +289,17 @@ function PhotoContent() {
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [zoomed, reportOpen, navIds, contextSearch, currentId, router]);
+  }, [
+    zoomed,
+    reportOpen,
+    navIds,
+    contextSearch,
+    currentId,
+    router,
+    closeZoom,
+    changeZoom,
+    resetZoom,
+  ]);
 
   // ── Swipe in zoom lightbox (unchanged) ───────────────────────────────────
 
@@ -254,6 +307,7 @@ function PhotoContent() {
     if (!zoomed) return;
     const el = overlayRef.current;
     if (!el) return;
+    if (zoomScale > 1) return;
 
     let startX = 0;
     let pinch = false;
@@ -269,12 +323,12 @@ function PhotoContent() {
       if (pinch) return;
       const dx = e.changedTouches[0].clientX - startX;
       if (dx < -50 && nextId) {
-        setZoomed(false);
-        router.push(`/photo/${nextId}`);
+        closeZoom();
+        router.push(`/photo/${nextId}${contextSearch}`);
       }
       if (dx > 50 && prevId) {
-        setZoomed(false);
-        router.push(`/photo/${prevId}`);
+        closeZoom();
+        router.push(`/photo/${prevId}${contextSearch}`);
       }
     }
 
@@ -286,7 +340,7 @@ function PhotoContent() {
       el.removeEventListener("touchmove", onMove);
       el.removeEventListener("touchend", onEnd);
     };
-  }, [zoomed, nextId, prevId, router]);
+  }, [zoomed, zoomScale, nextId, prevId, router, contextSearch, closeZoom]);
 
   // ── Load adjacentIds once ─────────────────────────────────────────────────
 
@@ -428,6 +482,28 @@ function PhotoContent() {
     setReportLoading(false);
   }
 
+  useEffect(() => {
+    if (loading || notFound) return;
+    const header = headerRef.current;
+    if (!header) return;
+
+    const setHeaderHeight = (height: number) => {
+      document.documentElement.style.setProperty(
+        "--photo-header-height",
+        `${height}px`,
+      );
+    };
+
+    setHeaderHeight(header.getBoundingClientRect().height);
+
+    const ro = new ResizeObserver(([entry]) => {
+      setHeaderHeight(entry.contentRect.height);
+    });
+    ro.observe(header);
+
+    return () => ro.disconnect();
+  }, [loading, notFound]);
+
   // ── Loading / not-found states ────────────────────────────────────────────
 
   if (loading) {
@@ -468,7 +544,7 @@ function PhotoContent() {
   return (
     <div className="min-h-screen bg-black text-white">
       {/* ── Header ────────────────────────────────────────────────────── */}
-      <header className="fixed top-0 inset-x-0 z-50 backdrop-blur-xl bg-black/50 border-b border-white/10">
+      <header ref={headerRef} className="fixed top-0 inset-x-0 z-50 backdrop-blur-xl bg-black/50 border-b border-white/10">
         <div className="max-w-7xl mx-auto px-6 h-17.5 flex items-center justify-between gap-6">
           <Link href="/" className="shrink-0">
             <Image
@@ -521,7 +597,7 @@ function PhotoContent() {
       </header>
 
       {/* ── Main ──────────────────────────────────────────────────────── */}
-      <main className="pt-17.5 pb-20 lg:pb-0">
+      <main className="pt-[var(--photo-header-height)] pb-20 lg:pb-0">
         <div className="max-w-7xl mx-auto px-5 sm:px-8 py-8 lg:py-14">
           <div className="grid lg:grid-cols-[1fr_360px] gap-8 xl:gap-14 items-start">
             {/* ── Colonne gauche — photo + titre mobile ────────── */}
@@ -573,13 +649,13 @@ function PhotoContent() {
 
                 {/* Photo principale */}
                 <div
-                  className="relative w-full aspect-3/2 lg:aspect-auto lg:h-[calc(100vh-200px)] rounded-2xl overflow-hidden border border-white/10 cursor-zoom-in group"
+                  className="relative w-full aspect-3/2 lg:aspect-auto lg:h-[calc(100vh_-_var(--photo-header-height)_-_130px)] rounded-2xl overflow-hidden border border-white/10 cursor-zoom-in group"
                   onClick={() => {
                     if (swipeHappened.current) {
                       swipeHappened.current = false;
                       return;
                     }
-                    setZoomed(true);
+                    openZoom();
                   }}
                   onTouchStart={(e) => {
                     touchStartX.current = e.touches[0].clientX;
@@ -673,7 +749,7 @@ function PhotoContent() {
                     className="absolute bottom-3 right-3 lg:hidden w-8 h-8 rounded-lg bg-black/60 backdrop-blur-sm border border-white/15 flex items-center justify-center text-white/60 text-sm z-10"
                     onClick={(e) => {
                       e.stopPropagation();
-                      setZoomed(true);
+                      openZoom();
                     }}
                     aria-label="Agrandir"
                   >
@@ -721,7 +797,7 @@ function PhotoContent() {
             </div>
 
             {/* ── Panneau info ─────────────────────────────────── */}
-            <div className="lg:sticky lg:top-21.5 space-y-6">
+            <div className="lg:sticky lg:top-[calc(var(--photo-header-height)_+_1rem)] space-y-6">
               {/* Animé : titre desktop + métadonnées + description */}
               <div className={animClass}>
                 {/* Badge + Titre + Métadonnées — masqués sur mobile */}
@@ -833,43 +909,119 @@ function PhotoContent() {
       {zoomed && (
         <div
           ref={overlayRef}
-          className="fixed inset-0 z-100 bg-black/96 backdrop-blur-sm flex items-center justify-center"
-          onClick={() => setZoomed(false)}
+          className="fixed inset-0 z-[9999] bg-black/96 backdrop-blur-sm"
+          onClick={closeZoom}
         >
+          <div
+            className="photo-lightbox-controls absolute top-4 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full border border-white/15 bg-black/70 p-1.5 text-white/70 backdrop-blur-md"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => changeZoom(-0.5)}
+              disabled={zoomScale <= 1}
+              aria-label="Reduire le zoom"
+              title="Reduire le zoom"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 text-lg leading-none transition-all duration-200 hover:border-white/25 hover:text-white disabled:cursor-not-allowed disabled:opacity-35"
+            >
+              -
+            </button>
+            <span className="w-14 text-center text-[10px] uppercase tracking-[0.18em] tabular-nums text-white/50">
+              {Math.round(zoomScale * 100)}%
+            </span>
+            <button
+              onClick={() => changeZoom(0.5)}
+              disabled={zoomScale >= 4}
+              aria-label="Agrandir le zoom"
+              title="Agrandir le zoom"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 text-lg leading-none transition-all duration-200 hover:border-white/25 hover:text-white disabled:cursor-not-allowed disabled:opacity-35"
+            >
+              +
+            </button>
+            <button
+              onClick={resetZoom}
+              disabled={zoomScale === 1 && zoomPan.x === 0 && zoomPan.y === 0}
+              aria-label="Revenir a 100%"
+              title="Revenir a 100%"
+              className="h-9 rounded-full border border-white/10 bg-white/5 px-3 text-[10px] uppercase tracking-[0.18em] transition-all duration-200 hover:border-white/25 hover:text-white disabled:cursor-not-allowed disabled:opacity-35"
+            >
+              1:1
+            </button>
+          </div>
           <button
-            onClick={() => setZoomed(false)}
-            aria-label="Fermer"
-            className="absolute top-4 right-4 z-10 w-10 h-10 rounded-full border border-white/15 bg-white/5 flex items-center justify-center text-white/50 hover:text-white hover:border-white/30 transition-all duration-200"
+            onClick={closeZoom}
+            aria-label="Fermer et revenir a la description"
+            title="Fermer et revenir a la description"
+            className="photo-lightbox-close absolute top-4 right-4 z-30 w-11 h-11 rounded-full border border-white/35 bg-black/85 shadow-[0_6px_24px_rgba(0,0,0,0.75)] ring-1 ring-black/60 flex items-center justify-center text-white hover:bg-black hover:border-white/70 transition-all duration-200"
           >
             ✕
           </button>
           {/* touch-action: pinch-zoom pour le zoom natif mobile */}
           <div
-            className="overflow-auto cursor-zoom-out"
-            style={{
-              maxWidth: "95vw",
-              maxHeight: "95vh",
-              touchAction: "pinch-zoom",
-            }}
+            className="photo-lightbox-stage flex h-full w-full items-center justify-center overflow-hidden px-3 py-18 sm:px-8"
             onClick={(e) => {
               e.stopPropagation();
-              setZoomed(false);
+            }}
+            onWheel={(e) => {
+              e.preventDefault();
+              changeZoom(e.deltaY > 0 ? -0.25 : 0.25);
+            }}
+            onDoubleClick={() => {
+              if (zoomScale === 1) changeZoom(1);
+              else resetZoom();
+            }}
+            onPointerDown={(e) => {
+              if (zoomScale <= 1) return;
+              e.preventDefault();
+              e.currentTarget.setPointerCapture(e.pointerId);
+              zoomDragRef.current = {
+                active: true,
+                moved: false,
+                startX: e.clientX,
+                startY: e.clientY,
+                originX: zoomPan.x,
+                originY: zoomPan.y,
+              };
+            }}
+            onPointerMove={(e) => {
+              if (!zoomDragRef.current.active || zoomScale <= 1) return;
+              const dx = e.clientX - zoomDragRef.current.startX;
+              const dy = e.clientY - zoomDragRef.current.startY;
+              if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
+                zoomDragRef.current.moved = true;
+              }
+              setZoomPan({
+                x: zoomDragRef.current.originX + dx,
+                y: zoomDragRef.current.originY + dy,
+              });
+            }}
+            onPointerUp={(e) => {
+              zoomDragRef.current.active = false;
+              e.currentTarget.releasePointerCapture(e.pointerId);
+            }}
+            onPointerCancel={(e) => {
+              zoomDragRef.current.active = false;
+              e.currentTarget.releasePointerCapture(e.pointerId);
             }}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={imageUrl(photo.src, "full")}
               alt={photo.title}
+              draggable={false}
+              className="photo-lightbox-image select-none transition-transform duration-150 ease-out"
               style={{
                 display: "block",
                 maxWidth: "min(2400px, 95vw)",
-                maxHeight: "80vh",
+                maxHeight: "calc(100dvh - 8rem)",
                 objectFit: "contain",
+                cursor: zoomScale > 1 ? "grab" : "default",
+                transform: `translate3d(${zoomPan.x}px, ${zoomPan.y}px, 0) scale(${zoomScale})`,
+                touchAction: zoomScale > 1 ? "none" : "pan-y",
               }}
             />
           </div>
           {/* Hint clavier */}
-          <p className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/20 text-[10px] uppercase tracking-[0.25em]">
+          <p className="photo-lightbox-hint absolute bottom-4 left-1/2 -translate-x-1/2 text-white/20 text-[10px] uppercase tracking-[0.25em]">
             <span className="hidden md:inline">Échap pour fermer</span>
             <span className="md:hidden">Appuyer pour fermer</span>
           </p>
@@ -879,7 +1031,7 @@ function PhotoContent() {
       {/* ── Modale signalement ────────────────────────────────────────── */}
       {reportOpen && (
         <div
-          className="fixed inset-0 z-100 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+          className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
           onClick={closeReport}
         >
           <div

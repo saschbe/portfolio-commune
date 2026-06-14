@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { supabase } from "@/lib/supabase";
 
@@ -52,6 +52,13 @@ type FormState = {
   url: string;
 };
 
+type LieuFilters = {
+  search: string;
+  village: string;
+  type: string;
+  location: "all" | "located" | "unlocated";
+};
+
 const defaultForm: FormState = {
   nom: "",
   village: villages[0],
@@ -66,6 +73,15 @@ const inputClass =
   "w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-cyan-300/60 focus:bg-white/7 transition-all duration-200";
 const labelClass =
   "block text-xs uppercase tracking-[0.25em] text-white/50 mb-2";
+const filterSelectClass =
+  "bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-xs uppercase tracking-[0.15em] focus:outline-none focus:border-cyan-300/60 focus:bg-white/7 transition-all";
+
+const defaultFilters: LieuFilters = {
+  search: "",
+  village: "all",
+  type: "all",
+  location: "all",
+};
 
 function LieuForm({
   initial,
@@ -224,6 +240,7 @@ export default function LieuxSection() {
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [filters, setFilters] = useState<LieuFilters>(defaultFilters);
 
   useEffect(() => {
     loadLieux();
@@ -262,6 +279,48 @@ export default function LieuxSection() {
       longitude: f.longitude !== "" ? parseFloat(f.longitude) : null,
       url: f.url !== "" ? f.url : null,
     };
+  }
+
+  const lieuTypes = useMemo(() => {
+    return Array.from(new Set(lieux.map((lieu) => lieu.type).filter(Boolean))).sort(
+      (a, b) => a.localeCompare(b),
+    );
+  }, [lieux]);
+
+  const filteredLieux = useMemo(() => {
+    const search = filters.search.trim().toLowerCase();
+
+    return lieux.filter((lieu) => {
+      const hasLocation = lieu.latitude != null && lieu.longitude != null;
+      const matchesSearch =
+        search === "" ||
+        [lieu.nom, lieu.village, lieu.type, lieu.description, lieu.url ?? ""]
+          .join(" ")
+          .toLowerCase()
+          .includes(search);
+      const matchesVillage =
+        filters.village === "all" || lieu.village === filters.village;
+      const matchesType = filters.type === "all" || lieu.type === filters.type;
+      const matchesLocation =
+        filters.location === "all" ||
+        (filters.location === "located" && hasLocation) ||
+        (filters.location === "unlocated" && !hasLocation);
+
+      return matchesSearch && matchesVillage && matchesType && matchesLocation;
+    });
+  }, [lieux, filters]);
+
+  const hasActiveFilters =
+    filters.search !== "" ||
+    filters.village !== "all" ||
+    filters.type !== "all" ||
+    filters.location !== "all";
+
+  function setFilter<K extends keyof LieuFilters>(
+    key: K,
+    value: LieuFilters[K],
+  ) {
+    setFilters((prev) => ({ ...prev, [key]: value }));
   }
 
   async function handleAdd(f: FormState) {
@@ -354,6 +413,77 @@ export default function LieuxSection() {
         </div>
       )}
 
+      {!loading && lieux.length > 0 && (
+        <div className="mb-6 bg-white/2 border border-white/10 rounded-2xl p-4">
+          <div className="grid grid-cols-1 md:grid-cols-[1.5fr_1fr_1fr_1fr_auto] gap-3">
+            <input
+              type="search"
+              value={filters.search}
+              onChange={(e) => setFilter("search", e.target.value)}
+              placeholder="Rechercher un lieu..."
+              className={inputClass}
+            />
+            <select
+              value={filters.village}
+              onChange={(e) => setFilter("village", e.target.value)}
+              className={filterSelectClass}
+            >
+              <option value="all" className="bg-zinc-900">
+                Tous les villages
+              </option>
+              {villages.map((v) => (
+                <option key={v} value={v} className="bg-zinc-900">
+                  {v}
+                </option>
+              ))}
+            </select>
+            <select
+              value={filters.type}
+              onChange={(e) => setFilter("type", e.target.value)}
+              className={filterSelectClass}
+            >
+              <option value="all" className="bg-zinc-900">
+                Tous les types
+              </option>
+              {lieuTypes.map((type) => (
+                <option key={type} value={type} className="bg-zinc-900">
+                  {type}
+                </option>
+              ))}
+            </select>
+            <select
+              value={filters.location}
+              onChange={(e) =>
+                setFilter("location", e.target.value as LieuFilters["location"])
+              }
+              className={filterSelectClass}
+            >
+              <option value="all" className="bg-zinc-900">
+                Tous
+              </option>
+              <option value="located" className="bg-zinc-900">
+                LocalisÃ©s
+              </option>
+              <option value="unlocated" className="bg-zinc-900">
+                Sans coordonnÃ©es
+              </option>
+            </select>
+            <button
+              type="button"
+              onClick={() => setFilters(defaultFilters)}
+              disabled={!hasActiveFilters}
+              className="px-4 py-2.5 rounded-xl border border-white/10 text-white/45 text-xs uppercase tracking-[0.15em] hover:border-white/20 hover:text-white/70 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              RÃ©initialiser
+            </button>
+          </div>
+          <p className="mt-3 text-xs uppercase tracking-[0.2em] text-white/35">
+            {filteredLieux.length} lieu{filteredLieux.length > 1 ? "x" : ""} sur{" "}
+            {lieux.length}
+          </p>
+        </div>
+      )}
+
       {/* List */}
       {loading ? (
         <p className="text-white/30 uppercase tracking-[0.3em] text-xs py-8">
@@ -363,9 +493,13 @@ export default function LieuxSection() {
         <p className="text-white/30 uppercase tracking-[0.3em] text-xs py-8">
           Aucun lieu.
         </p>
+      ) : filteredLieux.length === 0 ? (
+        <p className="text-white/30 uppercase tracking-[0.3em] text-xs py-8">
+          Aucun lieu ne correspond aux filtres.
+        </p>
       ) : (
         <div className="space-y-2">
-          {lieux.map((lieu) => (
+          {filteredLieux.map((lieu) => (
             <div
               key={lieu.id}
               className="flex items-center gap-4 bg-white/2 border border-white/10 rounded-2xl px-4 py-3 hover:border-white/20 transition-all"
