@@ -139,10 +139,9 @@ function PhotoContent() {
 
   // Liste effective pour la navigation (selon le contexte)
   const navIds = useMemo<string[]>(() => {
-    if (from === "carte") return [id];
     if (from === "galerie" && idsParam) return idsParam.split(",");
     return adjacentIds;
-  }, [from, idsParam, id, adjacentIds]);
+  }, [from, idsParam, adjacentIds]);
 
   const currentIndex = navIds.indexOf(currentId);
   const prevId = currentIndex > 0 ? navIds[currentIndex - 1] : null;
@@ -212,7 +211,12 @@ function PhotoContent() {
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
   const swipeHappened = useRef(false);
-  const lightboxSwipeStart = useRef({ x: 0, y: 0, pinch: false });
+  const lightboxSwipeRef = useRef({
+    active: false,
+    startX: 0,
+    startY: 0,
+    moved: false,
+  });
 
   const resetZoom = useCallback(() => {
     setZoomScale(1);
@@ -305,58 +309,10 @@ function PhotoContent() {
     resetZoom,
   ]);
 
-  // ── Swipe in zoom lightbox ───────────────────────────────────────────────
-
-  useEffect(() => {
-    if (!zoomed) return;
-    const el = overlayRef.current;
-    if (!el) return;
-    if (zoomScale > 1) return;
-
-    function onStart(e: TouchEvent) {
-      lightboxSwipeStart.current = {
-        x: e.touches[0]?.clientX ?? 0,
-        y: e.touches[0]?.clientY ?? 0,
-        pinch: e.touches.length > 1,
-      };
-    }
-
-    function onMove(e: TouchEvent) {
-      if (e.touches.length > 1) {
-        lightboxSwipeStart.current.pinch = true;
-      }
-    }
-
-    function onEnd(e: TouchEvent) {
-      if (lightboxSwipeStart.current.pinch) return;
-      const dx = e.changedTouches[0].clientX - lightboxSwipeStart.current.x;
-      const dy = e.changedTouches[0].clientY - lightboxSwipeStart.current.y;
-      if (Math.abs(dx) < SWIPE_MIN_X || Math.abs(dy) >= SWIPE_MAX_Y) return;
-
-      if (dx < 0 && nextId) {
-        resetZoom();
-        navigateTo(nextId, "left");
-      }
-      if (dx > 0 && prevId) {
-        resetZoom();
-        navigateTo(prevId, "right");
-      }
-    }
-
-    el.addEventListener("touchstart", onStart, { passive: true });
-    el.addEventListener("touchmove", onMove, { passive: true });
-    el.addEventListener("touchend", onEnd, { passive: true });
-    return () => {
-      el.removeEventListener("touchstart", onStart);
-      el.removeEventListener("touchmove", onMove);
-      el.removeEventListener("touchend", onEnd);
-    };
-  }, [zoomed, zoomScale, nextId, prevId, navigateTo, resetZoom]);
-
   // ── Load adjacentIds once ─────────────────────────────────────────────────
 
   useEffect(() => {
-    if (from === "carte" || (from === "galerie" && idsParam)) return;
+    if (from === "galerie" && idsParam) return;
     supabase
       .from("photos")
       .select("id")
@@ -990,6 +946,7 @@ function PhotoContent() {
           {/* touch-action: pinch-zoom pour le zoom natif mobile */}
           <div
             className="photo-lightbox-stage flex h-full w-full items-center justify-center overflow-hidden px-3 py-18 sm:px-8"
+            style={{ touchAction: zoomScale > 1 ? "none" : "pan-y" }}
             onClick={(e) => {
               e.stopPropagation();
             }}
@@ -1002,9 +959,17 @@ function PhotoContent() {
               else resetZoom();
             }}
             onPointerDown={(e) => {
-              if (zoomScale <= 1) return;
               e.preventDefault();
               e.currentTarget.setPointerCapture(e.pointerId);
+              if (zoomScale <= 1) {
+                lightboxSwipeRef.current = {
+                  active: true,
+                  startX: e.clientX,
+                  startY: e.clientY,
+                  moved: false,
+                };
+                return;
+              }
               zoomDragRef.current = {
                 active: true,
                 moved: false,
@@ -1015,6 +980,17 @@ function PhotoContent() {
               };
             }}
             onPointerMove={(e) => {
+              if (lightboxSwipeRef.current.active && zoomScale <= 1) {
+                const dx = e.clientX - lightboxSwipeRef.current.startX;
+                const dy = e.clientY - lightboxSwipeRef.current.startY;
+                if (Math.abs(dx) > 8 || Math.abs(dy) > 8) {
+                  lightboxSwipeRef.current.moved = true;
+                }
+                if (Math.abs(dx) > Math.abs(dy)) {
+                  e.preventDefault();
+                }
+                return;
+              }
               if (!zoomDragRef.current.active || zoomScale <= 1) return;
               const dx = e.clientX - zoomDragRef.current.startX;
               const dy = e.clientY - zoomDragRef.current.startY;
@@ -1027,10 +1003,25 @@ function PhotoContent() {
               });
             }}
             onPointerUp={(e) => {
+              if (lightboxSwipeRef.current.active && zoomScale <= 1) {
+                const dx = e.clientX - lightboxSwipeRef.current.startX;
+                const dy = e.clientY - lightboxSwipeRef.current.startY;
+                lightboxSwipeRef.current.active = false;
+                e.currentTarget.releasePointerCapture(e.pointerId);
+                if (
+                  Math.abs(dx) >= SWIPE_MIN_X &&
+                  Math.abs(dy) < SWIPE_MAX_Y
+                ) {
+                  if (dx < 0 && nextId) navigateTo(nextId, "left");
+                  if (dx > 0 && prevId) navigateTo(prevId, "right");
+                }
+                return;
+              }
               zoomDragRef.current.active = false;
               e.currentTarget.releasePointerCapture(e.pointerId);
             }}
             onPointerCancel={(e) => {
+              lightboxSwipeRef.current.active = false;
               zoomDragRef.current.active = false;
               e.currentTarget.releasePointerCapture(e.pointerId);
             }}

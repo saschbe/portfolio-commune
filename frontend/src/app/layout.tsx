@@ -53,6 +53,12 @@ export default function RootLayout({
       data-scroll-behavior="smooth"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
+      <head>
+        <meta name="theme-color" content="#000000" />
+        <meta name="color-scheme" content="dark" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="navigation-bar-color" content="#000000" />
+      </head>
       <body className="min-h-full flex flex-col">{children}</body>
     </html>
   );
