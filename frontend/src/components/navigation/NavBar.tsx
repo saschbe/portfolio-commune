@@ -93,7 +93,7 @@ export default function NavBar() {
   const spaceLabel = isPrivileged ? "Administration" : "Mon espace";
 
   return (
-    <header ref={headerRef} className="fixed top-0 left-0 w-full z-50 backdrop-blur-xl bg-black/50 border-b border-white/10">
+    <header ref={headerRef} className="fixed top-0 left-0 w-full z-50 backdrop-blur-xl bg-black/85 md:bg-black/50 border-b border-white/10 shadow-[0_10px_40px_rgba(0,0,0,0.35)]">
       <div className="max-w-7xl mx-auto px-6 py-5 flex items-center justify-between gap-10">
         <Link href="/" className="shrink-0">
           <Image
@@ -162,8 +162,8 @@ export default function NavBar() {
 
       {/* Mobile menu */}
       {mobileMenuOpen && (
-        <div className="md:hidden fixed inset-0 bg-black/95 backdrop-blur-xl z-40">
-          <div className="flex flex-col items-center justify-center min-h-screen pt-32 gap-10 text-white text-2xl uppercase tracking-widest">
+        <div className="md:hidden fixed inset-0 bg-zinc-950/98 backdrop-blur-2xl z-40">
+          <div className="flex min-h-dvh flex-col items-center justify-center pt-32 gap-10 text-white text-2xl uppercase tracking-widest">
             <Link href="/" onClick={() => setMobileMenuOpen(false)} className="hover:text-cyan-300 transition-all duration-300">Accueil</Link>
             <Link href="/galerie" onClick={() => setMobileMenuOpen(false)} className="hover:text-cyan-300 transition-all duration-300">Galerie</Link>
             <Link href="/carte" onClick={() => setMobileMenuOpen(false)} className="hover:text-cyan-300 transition-all duration-300">Carte</Link>
