@@ -7,6 +7,7 @@ import {
   useCallback,
   Suspense,
   useMemo,
+  useSyncExternalStore,
 } from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -57,6 +58,22 @@ const VILLAGES_HAMEAUX: Record<string, string[]> = {
 const VILLAGES = Object.keys(VILLAGES_HAMEAUX);
 
 const GALLERY_ASPECT = "aspect-[4/5]";
+const MOBILE_GALLERY_VIEW_QUERY = "(max-width: 639px)";
+
+function subscribeMobileGalleryView(onStoreChange: () => void) {
+  const mediaQuery = window.matchMedia(MOBILE_GALLERY_VIEW_QUERY);
+  mediaQuery.addEventListener("change", onStoreChange);
+
+  return () => mediaQuery.removeEventListener("change", onStoreChange);
+}
+
+function getMobileGalleryViewSnapshot() {
+  return window.matchMedia(MOBILE_GALLERY_VIEW_QUERY).matches;
+}
+
+function getServerMobileGalleryViewSnapshot() {
+  return false;
+}
 
 type GalleryView = "current" | "small" | "tiny";
 
@@ -251,7 +268,15 @@ function GalerieContent() {
   const reportTurnstileRef = useRef<TurnstileInstance>(null);
   const decadeMenuRef = useRef<HTMLDivElement>(null);
   const [decadeMenuOpen, setDecadeMenuOpen] = useState(false);
-  const [galleryView, setGalleryView] = useState<GalleryView>("current");
+  const isMobileGalleryView = useSyncExternalStore(
+    subscribeMobileGalleryView,
+    getMobileGalleryViewSnapshot,
+    getServerMobileGalleryViewSnapshot,
+  );
+  const [selectedGalleryView, setSelectedGalleryView] =
+    useState<GalleryView | null>(null);
+  const galleryView: GalleryView =
+    selectedGalleryView ?? (isMobileGalleryView ? "small" : "current");
 
   // ── Auth ────────────────────────────────────────────────────────────────────
 
@@ -899,7 +924,7 @@ function GalerieContent() {
                 <button
                   key={view.value}
                   type="button"
-                  onClick={() => setGalleryView(view.value)}
+                  onClick={() => setSelectedGalleryView(view.value)}
                   aria-pressed={active}
                   aria-label={`Vue ${view.label}`}
                   title={`Vue ${view.label}`}
