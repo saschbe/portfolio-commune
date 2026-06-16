@@ -10,6 +10,7 @@ const inputClass =
   "w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-cyan-300/60 focus:bg-white/7 transition-all duration-200";
 const labelClass =
   "block text-xs uppercase tracking-[0.25em] text-white/50 mb-2";
+const MIN_PASSWORD_LENGTH = 8;
 
 export default function RegisterPage() {
   const [firstName, setFirstName] = useState("");
@@ -32,8 +33,10 @@ export default function RegisterPage() {
       setStatus("error");
       return;
     }
-    if (password.length < 6) {
-      setErrorMsg("Le mot de passe doit contenir au moins 6 caractères.");
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      setErrorMsg(
+        `Le mot de passe doit contenir au moins ${MIN_PASSWORD_LENGTH} caractères.`,
+      );
       setStatus("error");
       return;
     }
@@ -204,7 +207,7 @@ export default function RegisterPage() {
             <input
               type="password"
               required
-              minLength={6}
+              minLength={MIN_PASSWORD_LENGTH}
               value={password}
               onChange={(e) => {
                 setPassword(e.target.value);

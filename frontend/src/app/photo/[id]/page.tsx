@@ -53,6 +53,9 @@ const RAISONS: { value: string; label: string }[] = [
 
 const SWIPE_MIN_X = 80;
 const SWIPE_MAX_Y = 60;
+const DETAIL_LABEL_CLASS =
+  "text-[10px] font-medium uppercase tracking-[0.25em] text-cyan-200/70";
+const DETAIL_META_LABEL_CLASS = `${DETAIL_LABEL_CLASS} w-14 shrink-0 pt-0.5`;
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 
@@ -635,7 +638,7 @@ function PhotoContent() {
                   <div className="space-y-3">
                     {photo.village && (
                       <div className="flex items-baseline gap-4">
-                        <span className="text-[10px] uppercase tracking-[0.25em] text-white/30 w-14 shrink-0 pt-0.5">
+                        <span className={DETAIL_META_LABEL_CLASS}>
                           Village
                         </span>
                         <span className="text-sm text-white/70">
@@ -645,7 +648,7 @@ function PhotoContent() {
                     )}
                     {photo.year && (
                       <div className="flex items-baseline gap-4">
-                        <span className="text-[10px] uppercase tracking-[0.25em] text-white/30 w-14 shrink-0 pt-0.5">
+                        <span className={DETAIL_META_LABEL_CLASS}>
                           Année
                         </span>
                         <span className="text-sm text-white/70">
@@ -655,7 +658,7 @@ function PhotoContent() {
                     )}
                     {photo.type && (
                       <div className="flex items-baseline gap-4">
-                        <span className="text-[10px] uppercase tracking-[0.25em] text-white/30 w-14 shrink-0 pt-0.5">
+                        <span className={DETAIL_META_LABEL_CLASS}>
                           Type
                         </span>
                         <span className="text-sm text-white/70 capitalize">
@@ -834,7 +837,7 @@ function PhotoContent() {
                   <div className="space-y-3">
                     {photo.village && (
                       <div className="flex items-baseline gap-4">
-                        <span className="text-[10px] uppercase tracking-[0.25em] text-white/30 w-14 shrink-0 pt-0.5">
+                        <span className={DETAIL_META_LABEL_CLASS}>
                           Village
                         </span>
                         <span className="text-sm text-white/70">
@@ -844,7 +847,7 @@ function PhotoContent() {
                     )}
                     {photo.year && (
                       <div className="flex items-baseline gap-4">
-                        <span className="text-[10px] uppercase tracking-[0.25em] text-white/30 w-14 shrink-0 pt-0.5">
+                        <span className={DETAIL_META_LABEL_CLASS}>
                           Année
                         </span>
                         <span className="text-sm text-white/70">
@@ -854,7 +857,7 @@ function PhotoContent() {
                     )}
                     {photo.type && (
                       <div className="flex items-baseline gap-4">
-                        <span className="text-[10px] uppercase tracking-[0.25em] text-white/30 w-14 shrink-0 pt-0.5">
+                        <span className={DETAIL_META_LABEL_CLASS}>
                           Type
                         </span>
                         <span className="text-sm text-white/70 capitalize">
@@ -868,7 +871,7 @@ function PhotoContent() {
                 {/* Description */}
                 {photo.description && (
                   <div className="border-t border-white/5 pt-5">
-                    <p className="text-[10px] uppercase tracking-[0.25em] text-white/30 mb-3">
+                    <p className={`${DETAIL_LABEL_CLASS} mb-3`}>
                       Description
                     </p>
                     <p className="text-sm text-white/60 leading-relaxed">
@@ -883,7 +886,7 @@ function PhotoContent() {
               {photo.latitude != null && photo.longitude != null ? (
                 <div className="border-t border-white/5 pt-5">
                   <div className="flex items-center justify-between mb-3">
-                    <p className="text-[10px] uppercase tracking-[0.25em] text-white/30">
+                    <p className={DETAIL_LABEL_CLASS}>
                       Localisation
                     </p>
                     <Link
