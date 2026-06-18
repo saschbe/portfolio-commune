@@ -22,6 +22,7 @@ type Photo = {
   src: string;
   title: string;
   village: string;
+  year?: string;
   description: string;
   latitude: number;
   longitude: number;
@@ -50,6 +51,41 @@ function photoPopupHtml(opts: {
       <p style="margin:0 0 8px;font-size:10px;text-transform:uppercase;letter-spacing:0.15em;color:rgba(255,255,255,0.35)">${opts.village}</p>
       ${opts.description ? `<p style="margin:0 0 10px;font-size:12px;color:rgba(255,255,255,0.55);line-height:1.5">${opts.description}</p>` : ""}
       <a href="/photo/${opts.id}?from=carte" style="display:inline-block;font-size:10px;text-transform:uppercase;letter-spacing:0.2em;color:#67e8f9;text-decoration:none;border:1px solid rgba(103,232,249,0.3);padding:6px 12px;border-radius:9999px">Voir la photo →</a>
+    </div>`;
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function clusterPhotosPopupHtml(photos: Photo[]) {
+  const cards = photos
+    .map((photo) => {
+      const thumbUrl = imageUrl(photo.src, "thumb");
+      return `
+        <a href="/photo/${photo.id}?from=carte"
+          style="display:grid;grid-template-columns:64px 1fr;gap:10px;align-items:center;padding:8px;border-radius:10px;text-decoration:none;color:inherit;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08)">
+          <span style="display:block;width:64px;height:48px;border-radius:8px;overflow:hidden;background:rgba(255,255,255,0.06)">
+            <img src="${thumbUrl}" alt="${escapeHtml(photo.title)}" style="width:100%;height:100%;object-fit:cover" />
+          </span>
+          <span style="min-width:0">
+            <span style="display:block;margin:0 0 4px;font-size:13px;font-weight:500;color:#fff;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(photo.title)}</span>
+            <span style="display:block;font-size:10px;text-transform:uppercase;letter-spacing:0.14em;color:rgba(103,232,249,0.72);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(photo.village)}${photo.year ? ` · ${escapeHtml(photo.year)}` : ""}</span>
+          </span>
+        </a>`;
+    })
+    .join("");
+
+  return `
+    <div style="width:280px;padding:12px">
+      <p style="margin:0 0 4px;font-size:10px;text-transform:uppercase;letter-spacing:0.2em;color:rgba(103,232,249,0.7)">Photos au meme endroit</p>
+      <p style="margin:0 0 10px;font-size:13px;color:rgba(255,255,255,0.52);line-height:1.45">${photos.length} photo${photos.length > 1 ? "s" : ""} correspondent a ce point. Selectionnez celle a ouvrir.</p>
+      <div style="display:grid;gap:8px;max-height:300px;overflow:auto;padding-right:2px">${cards}</div>
     </div>`;
 }
 
@@ -176,7 +212,8 @@ export default function MapClient({ photos, lieux }: Props) {
 
     const clusterGroup = L.markerClusterGroup({
       showCoverageOnHover: false,
-      spiderfyOnMaxZoom: true,
+      spiderfyOnMaxZoom: false,
+      zoomToBoundsOnClick: false,
       maxClusterRadius: 50,
       iconCreateFunction: (cluster: { getChildCount(): number }) => {
         const n = cluster.getChildCount();
@@ -199,6 +236,29 @@ export default function MapClient({ photos, lieux }: Props) {
     });
     clusterRef.current = clusterGroup;
 
+    clusterGroup.on("clusterclick", (event) => {
+      const cluster = event.layer;
+      const childPhotos = cluster
+        .getAllChildMarkers()
+        .map((marker: L.Marker & { photo?: Photo }) => marker.photo)
+        .filter((photo: Photo | undefined): photo is Photo => Boolean(photo));
+
+      if (map.getZoom() < map.getMaxZoom()) {
+        map.fitBounds(cluster.getBounds(), {
+          padding: [40, 40],
+          maxZoom: map.getMaxZoom(),
+        });
+        return;
+      }
+
+      if (childPhotos.length >= 1) {
+        L.popup({ ...popupOpts, maxWidth: 320 })
+          .setLatLng(cluster.getLatLng())
+          .setContent(clusterPhotosPopupHtml(childPhotos))
+          .openOn(map);
+      }
+    });
+
     for (const l of lieux) {
       L.marker([l.latitude, l.longitude], { icon: cyanIcon })
         .bindPopup(
@@ -209,7 +269,11 @@ export default function MapClient({ photos, lieux }: Props) {
     }
 
     for (const p of photos) {
-      L.marker([p.latitude, p.longitude], { icon: whiteIcon })
+      const marker = L.marker([p.latitude, p.longitude], { icon: whiteIcon }) as L.Marker & {
+        photo?: Photo;
+      };
+      marker.photo = p;
+      marker
         .bindPopup(
           photoPopupHtml({ id: p.id, src: p.src, title: p.title, village: p.village, description: p.description }),
           { ...popupOpts, maxWidth: 240 },

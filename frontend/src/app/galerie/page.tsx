@@ -59,6 +59,18 @@ const VILLAGES = Object.keys(VILLAGES_HAMEAUX);
 
 const GALLERY_ASPECT = "aspect-[4/5]";
 const MOBILE_GALLERY_VIEW_QUERY = "(max-width: 639px)";
+const RANDOMIZE_PHOTO_THRESHOLD = 24;
+
+function shufflePhotos<T>(items: T[]): T[] {
+  const shuffled = [...items];
+
+  for (let i = shuffled.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+
+  return shuffled;
+}
 
 function subscribeMobileGalleryView(onStoreChange: () => void) {
   const mediaQuery = window.matchMedia(MOBILE_GALLERY_VIEW_QUERY);
@@ -242,7 +254,7 @@ function GalerieContent() {
     {},
   );
   const abortRefs = useRef<Record<string, AbortController>>({});
-  const [filterRestaureeOui, setFilterRestaureeOui] = useState(false);
+  const [filterRestaureeOui, setFilterRestaureeOui] = useState(true);
   const [filterRestaureeNon, setFilterRestaureeNon] = useState(false);
   const [selectedVillages, setSelectedVillages] = useState<string[]>(() => {
     const v = searchParams.get("village");
@@ -571,56 +583,76 @@ function GalerieContent() {
     if (year < selectedYearFrom) setYearFrom(String(nextTo));
   }
 
-  const filteredPhotos =
-    activeFilters.length === 0 &&
-    !restoreeFiltered &&
-    selectedVillages.length === 0 &&
-    !selectedHameau &&
-    !yearFrom &&
-    !yearTo
-      ? photos
-      : photos.filter((photo) => {
-          if (
-            selectedVillages.length > 0 &&
-            !selectedVillages.includes(photo.village)
-          )
-            return false;
-          if (selectedHameau && photo.hameau !== selectedHameau) return false;
-          const typeFilters = activeFilters.filter((f) => f.colonne === "type");
-          if (
-            typeFilters.length > 0 &&
-            !typeFilters.some((f) => photoHasType(photo.type, f.value))
-          )
-            return false;
+  const filteredPhotos = useMemo(() => {
+    if (
+      activeFilters.length === 0 &&
+      !restoreeFiltered &&
+      selectedVillages.length === 0 &&
+      !selectedHameau &&
+      !yearFrom &&
+      !yearTo
+    ) {
+      return photos;
+    }
 
-          const passesFilters = activeFilters
-            .filter((f) => f.colonne !== "type")
-            .every((f) => {
-              const val = (photo as unknown as Record<string, unknown>)[
-                f.colonne
-              ];
-              if (val === null || val === undefined) return false;
-              if (typeof val === "boolean") {
-                const v = f.value.toLowerCase();
-                return val
-                  ? v === "oui" || v === "true"
-                  : v === "non" || v === "false";
-              }
-              return String(val).toLowerCase() === f.value.toLowerCase();
-            });
-          if (!passesFilters) return false;
-          if (yearFrom || yearTo) {
-            const y = parseInt(photo.year, 10);
-            if (isNaN(y)) return false;
-            if (yearFrom && y < parseInt(yearFrom, 10)) return false;
-            if (yearTo && y > parseInt(yearTo, 10)) return false;
+    return photos.filter((photo) => {
+      if (
+        selectedVillages.length > 0 &&
+        !selectedVillages.includes(photo.village)
+      )
+        return false;
+      if (selectedHameau && photo.hameau !== selectedHameau) return false;
+      const typeFilters = activeFilters.filter((f) => f.colonne === "type");
+      if (
+        typeFilters.length > 0 &&
+        !typeFilters.some((f) => photoHasType(photo.type, f.value))
+      )
+        return false;
+
+      const passesFilters = activeFilters
+        .filter((f) => f.colonne !== "type")
+        .every((f) => {
+          const val = (photo as unknown as Record<string, unknown>)[f.colonne];
+          if (val === null || val === undefined) return false;
+          if (typeof val === "boolean") {
+            const v = f.value.toLowerCase();
+            return val
+              ? v === "oui" || v === "true"
+              : v === "non" || v === "false";
           }
-          if (restoreeFiltered)
-            return filterRestaureeOui
-              ? photo.restored === true
-              : photo.restored === false;
-          return true;
+          return String(val).toLowerCase() === f.value.toLowerCase();
         });
+      if (!passesFilters) return false;
+      if (yearFrom || yearTo) {
+        const y = parseInt(photo.year, 10);
+        if (isNaN(y)) return false;
+        if (yearFrom && y < parseInt(yearFrom, 10)) return false;
+        if (yearTo && y > parseInt(yearTo, 10)) return false;
+      }
+      if (restoreeFiltered)
+        return filterRestaureeOui
+          ? photo.restored === true
+          : photo.restored === false;
+      return true;
+    });
+  }, [
+    activeFilters,
+    filterRestaureeOui,
+    photos,
+    restoreeFiltered,
+    selectedHameau,
+    selectedVillages,
+    yearFrom,
+    yearTo,
+  ]);
+
+  const displayedPhotos = useMemo(
+    () =>
+      filteredPhotos.length >= RANDOMIZE_PHOTO_THRESHOLD
+        ? shufflePhotos(filteredPhotos)
+        : filteredPhotos,
+    [filteredPhotos],
+  );
 
   const totalActiveFilters =
     activeFilters.length +
@@ -630,8 +662,8 @@ function GalerieContent() {
     (yearFrom || yearTo ? 1 : 0);
 
   const photosByDecade = useMemo(() => {
-    const groups = new Map<number | null, typeof filteredPhotos>();
-    for (const p of filteredPhotos) {
+    const groups = new Map<number | null, typeof displayedPhotos>();
+    for (const p of displayedPhotos) {
       const y = parseInt(p.year, 10);
       const decade = isNaN(y) ? null : Math.floor(y / 10) * 10;
       if (!groups.has(decade)) groups.set(decade, []);
@@ -642,7 +674,7 @@ function GalerieContent() {
       if (b[0] === null) return -1;
       return a[0]! - b[0]!;
     });
-  }, [filteredPhotos]);
+  }, [displayedPhotos]);
 
   const orderedIds = useMemo(
     () => photosByDecade.flatMap(([, photos]) => photos.map((p) => p.id)),
@@ -893,6 +925,22 @@ function GalerieContent() {
                     className="text-cyan-300/50 hover:text-cyan-300 leading-none transition-colors"
                   >
                     ✕
+                  </button>
+                </span>
+              )}
+              {restoreeFiltered && (
+                <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-cyan-300/10 border border-cyan-300/30 text-cyan-300 text-[10px] uppercase tracking-[0.15em]">
+                  <span className="text-cyan-300/50">Photo restaur&eacute;e :</span>
+                  {filterRestaureeOui ? "Oui" : "Non"}
+                  <button
+                    onClick={() => {
+                      setFilterRestaureeOui(false);
+                      setFilterRestaureeNon(false);
+                    }}
+                    aria-label="Supprimer le filtre photo restaur&eacute;e"
+                    className="text-cyan-300/50 hover:text-cyan-300 leading-none transition-colors"
+                  >
+                    âœ•
                   </button>
                 </span>
               )}

@@ -282,6 +282,7 @@ function PhotoContent() {
       setSlideDir(dir);
       setTimeout(() => {
         setCurrentId(targetId);
+        resetZoom();
         setSlideDir(null);
         window.history.replaceState(
           null,
@@ -290,8 +291,16 @@ function PhotoContent() {
         );
       }, 180);
     },
-    [contextSearch],
+    [contextSearch, resetZoom],
   );
+
+  const navigatePrevious = useCallback(() => {
+    if (prevId) navigateTo(prevId, "right");
+  }, [navigateTo, prevId]);
+
+  const navigateNext = useCallback(() => {
+    if (nextId) navigateTo(nextId, "left");
+  }, [navigateTo, nextId]);
 
   // ── Sync currentId when URL id changes (Link clicks, browser back) ────────
 
@@ -301,7 +310,7 @@ function PhotoContent() {
     });
   }, [id]);
 
-  // ── Keyboard navigation (desktop — keeps router.push) ─────────────────────
+  // ── Keyboard navigation ───────────────────────────────────────────────────
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -316,17 +325,22 @@ function PhotoContent() {
         }
       }
       if (zoomed) {
+        if (e.key === "ArrowLeft") {
+          navigatePrevious();
+          return;
+        }
+        if (e.key === "ArrowRight") {
+          navigateNext();
+          return;
+        }
         if (e.key === "+" || e.key === "=") changeZoom(0.5);
         if (e.key === "-") changeZoom(-0.5);
         if (e.key === "0") resetZoom();
         return;
       }
       if (!zoomed && !reportOpen) {
-        const idx = navIds.indexOf(currentId);
-        if (e.key === "ArrowLeft" && idx > 0)
-          router.push(`/photo/${navIds[idx - 1]}${contextSearch}`);
-        if (e.key === "ArrowRight" && idx < navIds.length - 1)
-          router.push(`/photo/${navIds[idx + 1]}${contextSearch}`);
+        if (e.key === "ArrowLeft") navigatePrevious();
+        if (e.key === "ArrowRight") navigateNext();
       }
     }
     document.addEventListener("keydown", onKey);
@@ -334,13 +348,11 @@ function PhotoContent() {
   }, [
     zoomed,
     reportOpen,
-    navIds,
-    contextSearch,
-    currentId,
-    router,
     closeZoom,
     changeZoom,
     resetZoom,
+    navigatePrevious,
+    navigateNext,
   ]);
 
   // ── Load adjacentIds once ─────────────────────────────────────────────────
@@ -977,6 +989,34 @@ function PhotoContent() {
           >
             ✕
           </button>
+          {prevId && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                navigatePrevious();
+              }}
+              aria-label="Photo precedente"
+              title="Photo precedente"
+              className="hidden md:flex absolute left-5 top-1/2 z-30 h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-white/25 bg-black/75 text-white/75 shadow-[0_6px_28px_rgba(0,0,0,0.65)] ring-1 ring-black/40 backdrop-blur-md transition-all duration-200 hover:border-cyan-300/45 hover:bg-black hover:text-cyan-200"
+            >
+              <ChevronLeft />
+            </button>
+          )}
+          {nextId && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                navigateNext();
+              }}
+              aria-label="Photo suivante"
+              title="Photo suivante"
+              className="hidden md:flex absolute right-5 top-1/2 z-30 h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-white/25 bg-black/75 text-white/75 shadow-[0_6px_28px_rgba(0,0,0,0.65)] ring-1 ring-black/40 backdrop-blur-md transition-all duration-200 hover:border-cyan-300/45 hover:bg-black hover:text-cyan-200"
+            >
+              <ChevronRight />
+            </button>
+          )}
           {/* touch-action: pinch-zoom pour le zoom natif mobile */}
           <div
             className="photo-lightbox-stage flex h-full w-full items-center justify-center overflow-hidden px-3 py-18 sm:px-8"

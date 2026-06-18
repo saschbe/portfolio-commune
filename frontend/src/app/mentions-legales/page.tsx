@@ -29,7 +29,17 @@ const SECTIONS = [
     title: "Protection des personnes",
     items: [
       "Toute photo représentant des personnes identifiables doit avoir été prise avec leur consentement ou celui de leurs ayants droit.",
-      "Les personnes photographiées peuvent demander le retrait de leur image en contactant l'administration.",
+      <>
+        Les personnes photographiées peuvent demander le retrait de leur image
+        en contactant{" "}
+        <a
+          href="mailto:plaintes@photoplombieres.eu"
+          className="text-cyan-300 underline decoration-cyan-300/35 underline-offset-4 transition-colors hover:text-cyan-200"
+        >
+          plaintes@photoplombieres.eu
+        </a>
+        .
+      </>,
     ],
   },
   {
